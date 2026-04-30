@@ -4,7 +4,7 @@ const TOKEN_KEY = 'auth_token'
 const USER_KEY = 'auth_user'
 
 const api = axios.create({
-  baseURL: 'http://empower-cv.test/api',
+  baseURL: 'http://empower-cv-api.test/',
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
