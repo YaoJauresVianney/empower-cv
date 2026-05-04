@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import ChatWidget from '../components/ChatWidget'
 
 const DashboardPage = () => {
   const navigate = useNavigate()
@@ -23,6 +24,8 @@ const DashboardPage = () => {
           Se déconnecter
         </button>
       </section>
+      
+      {user?.id && <ChatWidget userId={user.id} />}
     </main>
   )
 }
