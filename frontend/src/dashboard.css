@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+@theme {
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  --color-on-error: #ffffff;
+
+  --color-primary: #4f0067;
+  --color-primary-dark: #0c0015;
+  --color-primary-container: #710193;
+  --color-primary-fixed: #fad7ff;
+  --color-primary-fixed-dim: #efb0ff;
+  --color-on-primary: #ffffff;
+  --color-on-primary-fixed: #330044;
+  --color-on-primary-container: #e58fff;
+  --color-on-primary-fixed-variant: #750a97;
+  --color-inverse-primary: #efb0ff;
+
+  --color-secondary: #54606c;
+  --color-secondary-container: #d5e1ef;
+  --color-secondary-fixed: #d7e4f2;
+  --color-secondary-fixed-dim: #bbc8d6;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #586470;
+  --color-on-secondary-fixed: #111d27;
+  --color-on-secondary-fixed-variant: #3c4854;
+
+  --color-tertiary: #302a3b;
+  --color-tertiary-container: #474052;
+  --color-tertiary-fixed: #e9def5;
+  --color-tertiary-fixed-dim: #cdc2d9;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-fixed: #1e1929;
+  --color-on-tertiary-container: #b6acc2;
+  --color-on-tertiary-fixed-variant: #4a4456;
+
+  --color-surface: #f9f9f9;
+  --color-surface-bright: #f9f9f9;
+  --color-surface-dim: #dadada;
+  --color-surface-variant: #e2e2e2;
+  --color-surface-tint: #9030b1;
+  --color-surface-container: #eeeeee;
+  --color-surface-container-high: #e8e8e8;
+  --color-surface-container-highest: #e2e2e2;
+  --color-surface-container-low: #f3f3f3;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-surface: #1b1b1b;
+  --color-on-surface-variant: #4f4351;
+  --color-on-background: #1b1b1b;
+  --color-background: #f4f2f7;
+  --color-outline: #817282;
+  --color-outline-variant: #d3c1d2;
+  --color-inverse-surface: #303030;
+  --color-inverse-on-surface: #f1f1f1;
+
+  --font-family-sans: 'Manrope', sans-serif;
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #f4f2f7;
+    font-family: 'Manrope', sans-serif;
+    color: #1b1b1b;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .animate-in {
+    animation: fadeSlideUp 0.38s ease forwards;
+    opacity: 0;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(211, 193, 210, 0.6);
+    border-radius: 10px;
+  }
+
+  .glass-topbar {
+    background: rgba(249, 249, 249, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Purple-tinted shadows — no generic black */
+  .shadow-purple-sm {
+    box-shadow: 0 2px 12px rgba(79, 0, 103, 0.07);
+  }
+  .shadow-purple-md {
+    box-shadow: 0 4px 24px rgba(79, 0, 103, 0.11);
+  }
+  .shadow-purple-lg {
+    box-shadow: 0 8px 32px rgba(79, 0, 103, 0.16);
+  }
+
+  /* Sidebar noise grain */
+  .sidebar-grain::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.045;
+    background-image:
+      radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px),
+      radial-gradient(circle, rgba(255,255,255,0.5) 1px, transparent 1px);
+    background-size: 4px 4px, 8px 8px;
+    background-position: 0 0, 2px 2px;
+    border-radius: inherit;
+  }
+}
