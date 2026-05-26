@@ -1,8 +1,8 @@
 import ProgressBar from './ProgressBar'
 
 const PHASES = [
-  { label: 'Screening phase', value: '3.2 days', pct: 65 },
-  { label: 'Interview phase', value: '5.8 days', pct: 40 },
+  { label: 'Phase de présélection', value: '3,2 jours', pct: 65 },
+  { label: "Phase d'entretien", value: '5,8 jours', pct: 40 },
 ]
 
 export default function HiringTrendsCard() {
@@ -16,15 +16,15 @@ export default function HiringTrendsCard() {
           <span className="material-symbols-outlined text-[18px]" style={{ color: '#4f0067' }}>
             show_chart
           </span>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: '#9c8fa0' }}>
-            Hiring velocity
+          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+            Vitesse de recrutement
           </p>
         </div>
         <h4 className="text-[22px] font-bold tracking-tight leading-snug mb-3" style={{ color: '#1b1b1b' }}>
-          Hiring trends
+          Tendances de recrutement
         </h4>
         <p className="text-[14px] leading-relaxed mb-6" style={{ color: '#817282' }}>
-          Time-to-hire dropped 14% since last month's new screening protocol. Screening is the biggest driver.
+          Le délai de recrutement a baissé de 14% depuis le nouveau protocole de présélection du mois dernier. La présélection est le principal facteur.
         </p>
 
         <div className="space-y-5">
@@ -53,7 +53,7 @@ export default function HiringTrendsCard() {
         onMouseEnter={(e) => (e.currentTarget.style.gap = '8px')}
         onMouseLeave={(e) => (e.currentTarget.style.gap = '6px')}
       >
-        View full report
+        Voir le rapport complet
         <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
       </button>
     </div>

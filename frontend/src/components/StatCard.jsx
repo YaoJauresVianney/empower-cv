@@ -9,7 +9,7 @@ export default function StatCard({ label, value, bar, trend, trendIcon, positive
         boxShadow: '0 2px 14px rgba(79,0,103,0.07)',
       }}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] mb-3" style={{ color: '#9c8fa0' }}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] mb-3 text-text-muted">
         {label}
       </p>
       <p
@@ -21,8 +21,8 @@ export default function StatCard({ label, value, bar, trend, trendIcon, positive
       {bar !== undefined ? (
         <div>
           <ProgressBar value={bar} duration={700} />
-          <p className="text-[11px] mt-1.5" style={{ color: '#9c8fa0' }}>
-            Based on {bar} reviewed profiles
+          <p className="text-[11px] mt-1.5 text-text-muted">
+            Basé sur {bar} profils évalués
           </p>
         </div>
       ) : (

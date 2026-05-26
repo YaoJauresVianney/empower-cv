@@ -16,8 +16,7 @@ export default function FilterSelect({ options }) {
         ))}
       </select>
       <span
-        className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[16px]"
-        style={{ color: '#9c8fa0' }}
+        className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[16px] text-text-muted"
       >
         expand_more
       </span>
