@@ -3,6 +3,7 @@ import PrivateRoute from './components/PrivateRoute'
 import AuthLayout from './layouts/AuthLayout'
 import DashboardPage from './pages/DashboardPage'
 import CandidatesPage from './pages/CandidatesPage'
+import JobOffersPage from './pages/JobOffersPage'
 import Login from './pages/Login'
 import './App.css'
 
@@ -16,6 +17,7 @@ function App() {
         <Route element={<PrivateRoute />}>
           <Route path="/dashboard"  element={<DashboardPage />} />
           <Route path="/candidates" element={<CandidatesPage />} />
+          <Route path="/jobs"       element={<JobOffersPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

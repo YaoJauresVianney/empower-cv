@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AppLayout from '../components/AppLayout'
 import PageHeader from '../components/PageHeader'
 import FilterBar from '../components/FilterBar'
@@ -9,7 +9,7 @@ import CandidateTable from '../components/CandidateTable'
 
 import ChatWidget from '../components/ChatWidget'
 import { useAuth } from '../hooks/useAuth'
-import { CANDIDATES } from '../data/candidates'
+import { getCandidates } from '../services/api'
 import '../dashboard.css'
 
 const STATS = [
@@ -46,16 +46,44 @@ const ROLE_OPTIONS   = ['Tous les rôles', 'Designer Produit', 'Ingénieur Front
 const SORT_OPTIONS   = ['Score : décroissant', 'Score : croissant', 'Date : récent', 'Date : ancien']
 
 export default function CandidatesPage() {
-   const { getUser } = useAuth()
-    const user = getUser()
-  const [search, setSearch] = useState('')
+  const { getUser } = useAuth()
+  const user = getUser()
 
-  const filtered = CANDIDATES.filter((c) =>
-    search === '' ||
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase()) ||
-    c.role.toLowerCase().includes(search.toLowerCase())
-  )
+  const [search, setSearch]           = useState('')
+  const [debouncedSearch, setDebounced] = useState('')
+  const [page, setPage]               = useState(1)
+  const [candidates, setCandidates]   = useState([])
+  const [meta, setMeta]               = useState(null)
+  const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState(null)
+
+  // Debounce search — reset to page 1 on new query
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebounced(search)
+      setPage(1)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Fetch on page or search change
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true)
+    setError(null)
+    getCandidates(page, debouncedSearch, controller.signal)
+      .then((res) => {
+        setCandidates(res.data?.data ?? [])
+        setMeta(res.data?.meta ?? null)
+      })
+      .catch((err) => {
+        if (err?.code === 'ERR_CANCELED') return
+        console.error('[CandidatesPage] fetch error', err?.response ?? err)
+        setError('Impossible de charger les candidats.')
+      })
+      .finally(() => setLoading(false))
+    return () => controller.abort()
+  }, [page, debouncedSearch])
 
   return (
     <AppLayout>
@@ -82,7 +110,15 @@ export default function CandidatesPage() {
         <FilterSelect options={SORT_OPTIONS} />
       </FilterBar>
 
-      <CandidateTable candidates={filtered} />
+      {error && (
+        <p className="text-sm text-red-500 mb-4">{error}</p>
+      )}
+
+      <CandidateTable
+        candidates={loading ? [] : candidates}
+        meta={meta}
+        onPageChange={setPage}
+      />
 
       {user?.id && <ChatWidget userId={user.id} />}
     </AppLayout>

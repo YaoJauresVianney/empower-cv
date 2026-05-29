@@ -21,7 +21,8 @@ export default function TopBar({ user, onMenuToggle }) {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const avatarSrc = user?.avatar ?? '/assets/default-avatar.png'
+  const FALLBACK_AVATAR = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='8' fill='%23e8def8'/%3E%3Ccircle cx='22' cy='18' r='7' fill='%234f0067'/%3E%3Cellipse cx='22' cy='34' rx='11' ry='7' fill='%234f0067'/%3E%3C/svg%3E`
+  const avatarSrc = user?.avatar ?? FALLBACK_AVATAR
   const avatarAlt = user?.name ?? 'Responsable RH'
 
   return (
@@ -105,7 +106,7 @@ export default function TopBar({ user, onMenuToggle }) {
               src={avatarSrc}
               width={44}
               height={44}
-              onError={(e) => { e.currentTarget.src = '/assets/default-avatar.png' }}
+              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_AVATAR }}
             />
           </button>
         </div>

@@ -1,5 +1,5 @@
-import { memo, useState, useEffect, useRef } from 'react'
-import ProgressBar from './ProgressBar'
+import { memo, useState, useEffect, useRef, useCallback } from 'react'
+import { parseCandidateCv } from '../services/api'
 
 const handleAvatarError = (e) => { e.currentTarget.style.display = 'none' }
 
@@ -27,12 +27,11 @@ const STATUS_CONFIG = {
 }
 
 const TABLE_COLUMNS = [
-  { label: 'Candidat',               cls: '' },
-  { label: 'Rôle',                   cls: '' },
-  { label: 'Statut',                 cls: '' },
-  { label: 'Score de correspondance', cls: 'text-center' },
-  { label: 'Candidature',            cls: '' },
-  { label: '',                       cls: '' },
+  { label: 'Candidat', cls: '' },
+  { label: 'Rôle',     cls: '' },
+  { label: 'Statut',   cls: '' },
+  { label: 'CV',       cls: '' },
+  { label: '',         cls: '' },
 ]
 
 const StatusBadge = memo(function StatusBadge({ status }) {
@@ -48,26 +47,13 @@ const StatusBadge = memo(function StatusBadge({ status }) {
   )
 })
 
-const ScoreBar = memo(function ScoreBar({ score }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <span className="text-[14px] leading-5 font-bold text-primary tabular-nums">
-        {score != null ? `${score}%` : '—'}
-      </span>
-      <ProgressBar value={score ?? 0} className="w-24" />
-    </div>
-  )
-})
-
-const MENU_ITEMS = [
-  { icon: 'person',  label: 'Voir profil' },
-  { icon: 'article', label: 'Voir CV' },
-]
 
 const CandidateRow = memo(function CandidateRow({ candidate }) {
   const name = candidate.name ?? 'Nom inconnu'
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen]     = useState(false)
+  const [parseState, setParseState] = useState('idle') // idle | loading | success | error
   const menuRef = useRef(null)
+  const timerRef = useRef(null)
 
   useEffect(() => {
     if (!menuOpen) return
@@ -78,18 +64,37 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [menuOpen])
 
+  useEffect(() => () => clearTimeout(timerRef.current), [])
+
+  const handleParseCv = useCallback(() => {
+    if (parseState === 'loading') return
+    setParseState('loading')
+    setMenuOpen(false)
+    parseCandidateCv(candidate.id)
+      .then(() => setParseState('success'))
+      .catch(() => setParseState('error'))
+      .finally(() => {
+        timerRef.current = setTimeout(() => setParseState('idle'), 3000)
+      })
+  }, [candidate.id, parseState])
+
   return (
     <tr className="group transition-colors duration-150 hover:bg-primary-fixed/40">
       <td className="px-6 py-4">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-lg overflow-hidden border border-outline-variant/60 flex-shrink-0">
-            <img
-              alt={name}
-              src={candidate.avatar}
-              className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
-              loading="lazy"
-              onError={handleAvatarError}
-            />
+          <div className="w-9 h-9 rounded-lg overflow-hidden border border-outline-variant/60 flex-shrink-0 bg-primary-fixed flex items-center justify-center">
+            {candidate.avatar
+              ? <img
+                  alt={name}
+                  src={candidate.avatar}
+                  className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
+                  loading="lazy"
+                  onError={handleAvatarError}
+                />
+              : <span className="text-[13px] font-bold text-primary select-none">
+                  {name.charAt(0).toUpperCase()}
+                </span>
+            }
           </div>
           <div className="min-w-0">
             <p className="text-[14px] font-semibold text-on-surface leading-snug truncate">{name}</p>
@@ -104,10 +109,21 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
         <StatusBadge status={candidate.status} />
       </td>
       <td className="px-6 py-4">
-        <ScoreBar score={candidate.score} />
-      </td>
-      <td className="px-6 py-4 text-[13px] text-outline tabular-nums whitespace-nowrap">
-        {candidate.date ?? '—'}
+        {candidate.cv_link
+          ? (
+            <a
+              href={candidate.cv_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-semibold text-primary hover:bg-primary-fixed transition-colors duration-150"
+              aria-label="Voir le CV"
+            >
+              <span className="material-symbols-outlined text-[15px]">description</span>
+              CV
+            </a>
+          )
+          : <span className="text-[13px] text-outline">—</span>
+        }
       </td>
       <td className="px-6 py-4">
         <div className="relative" ref={menuRef}>
@@ -124,17 +140,31 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
             <span className="material-symbols-outlined text-[20px]">more_horiz</span>
           </button>
 
+          {parseState !== 'idle' && (
+            <span className={`absolute right-8 top-1.5 text-[11px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-md ${
+              parseState === 'loading' ? 'text-outline bg-primary-fixed' :
+              parseState === 'success' ? 'text-primary bg-primary-fixed' :
+              'text-error bg-error-container'
+            }`}>
+              {parseState === 'loading' ? 'Lancement…' : parseState === 'success' ? 'Lancé ✓' : 'Erreur'}
+            </span>
+          )}
+
           {menuOpen && (
             <div
               role="menu"
               className="absolute right-0 top-8 z-50 bg-white rounded-xl py-1 min-w-[152px]"
               style={{ boxShadow: '0 4px 20px rgba(79,0,103,0.14)', border: '1px solid rgba(79,0,103,0.08)' }}
             >
-              {MENU_ITEMS.map(({ icon, label }) => (
+              {[
+                { icon: 'person',  label: 'Voir profil',  onClick: () => setMenuOpen(false) },
+                { icon: 'article', label: 'Voir CV',      onClick: () => setMenuOpen(false) },
+                ...(candidate.cv_link ? [{ icon: 'auto_awesome', label: 'Parser le CV', onClick: handleParseCv }] : []),
+              ].map(({ icon, label, onClick }) => (
                 <button
                   key={label}
                   role="menuitem"
-                  onClick={() => setMenuOpen(false)}
+                  onClick={onClick}
                   className="flex items-center gap-2.5 w-full px-4 py-2.5 text-[13px] font-medium text-on-surface
                     hover:bg-primary-fixed/60 hover:text-primary transition-colors duration-100"
                 >
@@ -150,6 +180,13 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
   )
 })
 
+function getPageNumbers(current, last) {
+  if (last <= 5) return Array.from({ length: last }, (_, i) => i + 1)
+  if (current <= 3) return [1, 2, 3, '…', last]
+  if (current >= last - 2) return [1, '…', last - 2, last - 1, last]
+  return [1, '…', current - 1, current, current + 1, '…', last]
+}
+
 function EmptyState() {
   return (
     <tr>
@@ -162,7 +199,13 @@ function EmptyState() {
   )
 }
 
-export default function CandidateTable({ candidates = [] }) {
+export default function CandidateTable({ candidates = [], meta = null, onPageChange }) {
+  const currentPage = meta?.current_page ?? 1
+  const lastPage    = meta?.last_page    ?? 1
+  const total       = meta?.total        ?? candidates.length
+  const perPage     = meta?.per_page     ?? candidates.length
+  const from        = total === 0 ? 0 : (currentPage - 1) * perPage + 1
+  const to          = Math.min(currentPage * perPage, total)
   return (
     <div className="bg-white rounded-2xl overflow-hidden shadow-purple-sm">
       <div className="overflow-x-auto custom-scrollbar">
@@ -194,42 +237,45 @@ export default function CandidateTable({ candidates = [] }) {
 
       <div className="flex items-center justify-between px-6 py-3.5 border-t border-outline-variant/40">
         <p className="text-[12px] font-medium text-text-muted">
-          Affichage 1–{candidates.length} sur 1 284 candidats
+          {total === 0
+            ? 'Aucun résultat'
+            : `Affichage ${from}–${to} sur ${total.toLocaleString('fr-FR')} candidats`}
         </p>
         <div className="flex items-center gap-1.5">
           <button
+            onClick={() => onPageChange?.(currentPage - 1)}
+            disabled={currentPage <= 1}
             className="p-2.5 rounded-lg text-outline border border-outline-variant/80 hover:bg-primary-fixed
-              transition-colors duration-150 active:scale-[0.94]
+              transition-colors duration-150 active:scale-[0.94] disabled:opacity-40 disabled:cursor-not-allowed
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim"
             aria-label="Page précédente"
           >
             <span className="material-symbols-outlined text-[16px]">chevron_left</span>
           </button>
 
-          <button
-            className="w-10 h-10 rounded-lg text-[13px] font-bold text-on-primary bg-primary transition-colors duration-150
-              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim focus-visible:ring-offset-2"
-            aria-label="Page 1"
-            aria-current="page"
-          >
-            1
-          </button>
-
-          {['2', '3'].map((n) => (
-            <button
-              key={n}
-              className="w-10 h-10 rounded-lg text-[13px] font-semibold text-outline hover:bg-primary-fixed
-                transition-colors duration-150 active:scale-[0.94]
-                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim"
-              aria-label={`Page ${n}`}
-            >
-              {n}
-            </button>
-          ))}
+          {getPageNumbers(currentPage, lastPage).map((n) =>
+            n === '…'
+              ? <span key={n + Math.random()} className="px-1 text-outline text-[13px]">…</span>
+              : <button
+                  key={n}
+                  onClick={() => onPageChange?.(n)}
+                  className={`w-10 h-10 rounded-lg text-[13px] font-bold transition-colors duration-150
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim focus-visible:ring-offset-2
+                    ${n === currentPage
+                      ? 'text-on-primary bg-primary'
+                      : 'text-outline hover:bg-primary-fixed active:scale-[0.94]'}`}
+                  aria-label={`Page ${n}`}
+                  aria-current={n === currentPage ? 'page' : undefined}
+                >
+                  {n}
+                </button>
+          )}
 
           <button
+            onClick={() => onPageChange?.(currentPage + 1)}
+            disabled={currentPage >= lastPage}
             className="p-2.5 rounded-lg text-outline border border-outline-variant/80 hover:bg-primary-fixed
-              transition-colors duration-150 active:scale-[0.94]
+              transition-colors duration-150 active:scale-[0.94] disabled:opacity-40 disabled:cursor-not-allowed
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim"
             aria-label="Page suivante"
           >

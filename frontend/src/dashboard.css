@@ -68,6 +68,16 @@
   --color-status-neutral-dot: #737373;
   --color-status-neutral-bg: #f5f5f5;
   --color-status-neutral-text: #404040;
+
+  /* Types d'offres */
+  --color-type-cdi-bg: #f0fdf4;
+  --color-type-cdi-text: #15803d;
+  --color-type-cdd-bg: #eff6ff;
+  --color-type-cdd-text: #1d4ed8;
+  --color-type-stage-bg: #fefce8;
+  --color-type-stage-text: #a16207;
+  --color-type-alternance-bg: #fdf4ff;
+  --color-type-alternance-text: #7e22ce;
 }
 
 @keyframes fadeSlideUp {

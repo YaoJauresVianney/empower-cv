@@ -67,4 +67,12 @@ export const getAuthUser = () => {
   }
 }
 
+export const getJobOffers = () => api.get('api/jobs')
+
+export const getCandidates = (page = 1, search = '', signal = null) =>
+  api.get('api/candidates', { params: { page, search }, signal })
+
+export const parseCandidateCv = (id) =>
+  api.post(`api/candidates/${id}/parse-cv`)
+
 export default api
