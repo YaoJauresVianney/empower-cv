@@ -59,7 +59,7 @@ const ChatWidget = ({ userId, jobDescriptionId = null }) => {
 
     const successMessage = {
       sender: 'bot',
-      text: `✅ Fiche "${fileName}" analysée avec succès ! Génération de la shortlist en cours...`,
+      text: `Fiche "${fileName}" analysée avec succès. Génération de la shortlist en cours...`,
       type: 'text',
     }
 
@@ -236,31 +236,61 @@ const ChatWidget = ({ userId, jobDescriptionId = null }) => {
   }
 
   return (
-    <div className="chat-widget-container">
+    <div className="fixed bottom-5 right-5 z-[60]" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {!isOpen && (
         <button
-          className="chat-toggle-button"
+          type="button"
+          className="relative w-14 h-14 rounded-full bg-primary text-on-primary grid place-items-center
+            shadow-[0_8px_28px_rgba(79,0,103,0.42)] transition-all duration-200
+            hover:-translate-y-0.5 hover:shadow-[0_12px_34px_rgba(79,0,103,0.55)] active:scale-95
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           onClick={() => setIsOpen(true)}
-          aria-label="Ouvrir le chat"
+          aria-label="Ouvrir l'assistant"
         >
-          💬
+          <span
+            className="absolute inset-0 rounded-full bg-primary opacity-30 animate-ping motion-reduce:hidden"
+            aria-hidden="true"
+          />
+          <span className="material-symbols-outlined relative text-[26px]" aria-hidden="true">forum</span>
         </button>
       )}
 
       {isOpen && (
-        <div className="chat-widget">
-          <div className="chat-header">
-            <h3>Assistant IA</h3>
+        <div
+          className="chat-panel-anim flex flex-col w-[min(380px,calc(100vw-2rem))] h-[600px] max-h-[calc(100dvh-2.5rem)]
+            bg-surface-container-lowest rounded-3xl overflow-hidden border border-outline-variant
+            shadow-[0_24px_60px_-18px_rgba(79,0,103,0.4)]"
+          role="dialog"
+          aria-label="Assistant IA"
+        >
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-primary text-on-primary">
+            <span className="w-9 h-9 rounded-xl bg-white/15 grid place-items-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">auto_awesome</span>
+            </span>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[15px] font-bold leading-tight tracking-tight">Assistant IA</h3>
+              <p className="flex items-center gap-1.5 mt-0.5 text-[11px] leading-tight text-on-primary/70">
+                <span className="relative flex w-1.5 h-1.5">
+                  <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-70 animate-ping motion-reduce:hidden" />
+                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                </span>
+                En ligne
+              </p>
+            </div>
             <button
-              className="chat-close-button"
+              type="button"
+              className="w-8 h-8 rounded-lg grid place-items-center text-on-primary/80 hover:bg-white/15 active:scale-95 transition-colors
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
               onClick={() => setIsOpen(false)}
-              aria-label="Fermer le chat"
+              aria-label="Fermer l'assistant"
             >
-              ✕
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">close</span>
             </button>
           </div>
 
-          <div className="chat-messages">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 bg-background custom-scrollbar">
             {messages.map((message, index) => (
               <ChatMessage key={index} message={message} onLoadMore={handleLoadMore} />
             ))}
@@ -293,27 +323,53 @@ const ChatWidget = ({ userId, jobDescriptionId = null }) => {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Suggestions (empty state) */}
           {messages.length === 1 && (
-            <div className="quick-actions">
+            <div className="flex flex-col gap-2 px-4 pt-1 pb-3 bg-background">
+              <p className="px-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-text-muted">
+                Suggestions
+              </p>
               <button
-                className="quick-action-button"
+                type="button"
+                className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left
+                  bg-surface-container-lowest border border-outline-variant text-[13px] font-semibold text-on-surface
+                  transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_4px_16px_rgba(79,0,103,0.1)] active:scale-[0.98]"
                 onClick={() => handleQuickAction('search')}
               >
-                🔍 Trouver un candidat spécifique
+                <span className="w-8 h-8 rounded-lg grid place-items-center bg-primary-fixed text-primary shrink-0">
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person_search</span>
+                </span>
+                <span className="flex-1">Trouver un candidat spécifique</span>
+                <span className="material-symbols-outlined text-[18px] text-text-muted group-hover:text-primary transition-colors" aria-hidden="true">
+                  chevron_right
+                </span>
               </button>
               <button
-                className="quick-action-button"
+                type="button"
+                className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left
+                  bg-surface-container-lowest border border-outline-variant text-[13px] font-semibold text-on-surface
+                  transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_4px_16px_rgba(79,0,103,0.1)] active:scale-[0.98]"
                 onClick={() => handleQuickAction('shortlist')}
               >
-                ⭐ Créer une shortlist de candidats
+                <span className="w-8 h-8 rounded-lg grid place-items-center bg-primary-fixed text-primary shrink-0">
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">workspace_premium</span>
+                </span>
+                <span className="flex-1">Créer une shortlist de candidats</span>
+                <span className="material-symbols-outlined text-[18px] text-text-muted group-hover:text-primary transition-colors" aria-hidden="true">
+                  chevron_right
+                </span>
               </button>
             </div>
           )}
 
-          <div className="chat-input-container">
+          {/* Input */}
+          <div className="flex items-center gap-2 px-3 py-3 bg-surface-container-lowest border-t border-outline-variant">
             <input
               type="text"
-              className="chat-input"
+              className="flex-1 min-w-0 px-4 py-2.5 rounded-full text-[14px] text-on-surface bg-background
+                border border-outline-variant outline-none transition-all duration-150 placeholder:text-text-muted
+                focus:border-primary/50 focus:ring-2 focus:ring-primary-fixed-dim/40
+                disabled:opacity-60 disabled:cursor-not-allowed"
               placeholder="Tapez votre message..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -321,12 +377,16 @@ const ChatWidget = ({ userId, jobDescriptionId = null }) => {
               disabled={loading || showUpload}
             />
             <button
-              className="chat-send-button"
+              type="button"
+              className="w-10 h-10 rounded-full bg-primary text-on-primary grid place-items-center shrink-0
+                transition-all duration-200 hover:shadow-[0_4px_16px_rgba(79,0,103,0.4)] active:scale-95
+                disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest"
               onClick={() => handleSendMessage()}
               disabled={loading || showUpload || !inputValue.trim()}
               aria-label="Envoyer le message"
             >
-              ➤
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_upward</span>
             </button>
           </div>
         </div>

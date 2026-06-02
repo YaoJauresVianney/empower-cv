@@ -1,30 +1,7 @@
 import { memo, useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { parseCandidateCv } from '../services/api'
-
-const handleAvatarError = (e) => { e.currentTarget.style.display = 'none' }
-
-const STATUS_CONFIG = {
-  'Présélectionné': {
-    dot:  'var(--color-primary-container)',
-    bg:   'var(--color-primary-fixed)',
-    text: 'var(--color-primary)',
-  },
-  'En entretien': {
-    dot:  'var(--color-status-info-dot)',
-    bg:   'var(--color-status-info-bg)',
-    text: 'var(--color-status-info-text)',
-  },
-  'Nouveau': {
-    dot:  'var(--color-status-neutral-dot)',
-    bg:   'var(--color-status-neutral-bg)',
-    text: 'var(--color-status-neutral-text)',
-  },
-  'Refusé': {
-    dot:  'var(--color-error)',
-    bg:   'var(--color-error-container)',
-    text: 'var(--color-on-error-container)',
-  },
-}
+import CandidateAvatar from './CandidateAvatar'
 
 const TABLE_COLUMNS = [
   { label: 'Candidat', cls: '' },
@@ -34,37 +11,28 @@ const TABLE_COLUMNS = [
   { label: '',         cls: '' },
 ]
 
-const StatusBadge = memo(function StatusBadge({ status }) {
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG['Nouveau']
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-semibold whitespace-nowrap"
-      style={{ background: cfg.bg, color: cfg.text }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
-      {status}
-    </span>
-  )
-})
-
-
 const CandidateRow = memo(function CandidateRow({ candidate }) {
+  const navigate = useNavigate()
   const name = candidate.name ?? 'Nom inconnu'
   const [menuOpen, setMenuOpen]     = useState(false)
   const [parseState, setParseState] = useState('idle') // idle | loading | success | error
-  const menuRef = useRef(null)
+  const [menuPos, setMenuPos]       = useState(null)
+  const btnRef   = useRef(null)
   const timerRef = useRef(null)
 
-  useEffect(() => {
-    if (!menuOpen) return
-    const handleClick = (e) => {
-      if (!menuRef.current?.contains(e.target)) setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [menuOpen])
-
   useEffect(() => () => clearTimeout(timerRef.current), [])
+
+  const handleToggle = useCallback(() => {
+    if (!menuOpen && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      const openUpward = window.innerHeight - rect.bottom < 160
+      setMenuPos(openUpward
+        ? { bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right }
+        : { top: rect.bottom + 4,                      right: window.innerWidth - rect.right }
+      )
+    }
+    setMenuOpen(v => !v)
+  }, [menuOpen])
 
   const handleParseCv = useCallback(() => {
     if (parseState === 'loading') return
@@ -82,20 +50,7 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
     <tr className="group transition-colors duration-150 hover:bg-primary-fixed/40">
       <td className="px-6 py-4">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-lg overflow-hidden border border-outline-variant/60 flex-shrink-0 bg-primary-fixed flex items-center justify-center">
-            {candidate.avatar
-              ? <img
-                  alt={name}
-                  src={candidate.avatar}
-                  className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
-                  loading="lazy"
-                  onError={handleAvatarError}
-                />
-              : <span className="text-[13px] font-bold text-primary select-none">
-                  {name.charAt(0).toUpperCase()}
-                </span>
-            }
-          </div>
+          <CandidateAvatar name={name} avatar={candidate.avatar} size="sm" />
           <div className="min-w-0">
             <p className="text-[14px] font-semibold text-on-surface leading-snug truncate">{name}</p>
             <p className="text-[12px] text-outline mt-0.5 truncate">{candidate.email ?? ''}</p>
@@ -106,7 +61,19 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
         <span className="truncate block">{candidate.role ?? '—'}</span>
       </td>
       <td className="px-6 py-4">
-        <StatusBadge status={candidate.status} />
+        {candidate.is_parsed
+          ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-50 text-green-700">
+              <span className="material-symbols-outlined text-[13px]">check_circle</span>
+              Analysé
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-surface-variant text-outline">
+              <span className="material-symbols-outlined text-[13px]">hourglass_empty</span>
+              Non analysé
+            </span>
+          )
+        }
       </td>
       <td className="px-6 py-4">
         {candidate.cv_link
@@ -126,9 +93,13 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
         }
       </td>
       <td className="px-6 py-4">
-        <div className="relative" ref={menuRef}>
+        <div className="relative">
+          {menuOpen && (
+            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+          )}
           <button
-            onClick={() => setMenuOpen((v) => !v)}
+            ref={btnRef}
+            onClick={handleToggle}
             className={`p-1.5 rounded-lg text-outline hover:bg-primary-fixed/60 hover:text-primary active:scale-[0.95]
               transition-all duration-150
               focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim
@@ -150,16 +121,16 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
             </span>
           )}
 
-          {menuOpen && (
+          {menuOpen && menuPos && (
             <div
               role="menu"
-              className="absolute right-0 top-8 z-50 bg-white rounded-xl py-1 min-w-[152px]"
-              style={{ boxShadow: '0 4px 20px rgba(79,0,103,0.14)', border: '1px solid rgba(79,0,103,0.08)' }}
+              className="fixed z-50 bg-white rounded-xl py-1 min-w-[152px]"
+              style={{ top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right, boxShadow: '0 4px 20px rgba(79,0,103,0.14)', border: '1px solid rgba(79,0,103,0.08)' }}
             >
               {[
-                { icon: 'person',  label: 'Voir profil',  onClick: () => setMenuOpen(false) },
+                { icon: 'person',  label: 'Voir profil',  onClick: () => { setMenuOpen(false); navigate(`/candidates/${candidate.id}`) } },
                 { icon: 'article', label: 'Voir CV',      onClick: () => setMenuOpen(false) },
-                ...(candidate.cv_link ? [{ icon: 'auto_awesome', label: 'Parser le CV', onClick: handleParseCv }] : []),
+                ...(candidate.cv_link && !candidate.is_parsed ? [{ icon: 'auto_awesome', label: 'Parser le CV', onClick: handleParseCv }] : []),
               ].map(({ icon, label, onClick }) => (
                 <button
                   key={label}
@@ -207,7 +178,7 @@ export default function CandidateTable({ candidates = [], meta = null, onPageCha
   const from        = total === 0 ? 0 : (currentPage - 1) * perPage + 1
   const to          = Math.min(currentPage * perPage, total)
   return (
-    <div className="bg-white rounded-2xl overflow-hidden shadow-purple-sm">
+    <div className="bg-white rounded-2xl shadow-purple-sm">
       <div className="overflow-x-auto custom-scrollbar">
         <table
           className="w-full text-left border-collapse"

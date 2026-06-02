@@ -1,164 +1,18 @@
-import { memo, useCallback, useState, useEffect, useRef } from 'react'
+import JobOfferRow from './JobOfferRow'
 
 const TABLE_COLUMNS = [
   { id: 'offer',       label: 'Offre',               cls: '' },
   { id: 'skills',      label: 'Compétences clés',    cls: '' },
-  { id: 'experience',  label: 'Expérience',          cls: 'text-center' },
   { id: 'candidates',  label: 'Candidatures',        cls: 'text-center' },
   { id: 'published',   label: 'Publiée le',          cls: '' },
   { id: 'file',        label: 'Fichier',             cls: 'text-center' },
   { id: 'actions',     label: '',                    cls: '' },
 ]
 
-const MENU_ITEMS = [
-  { icon: 'open_in_new', label: "Voir l'offre" },
-  { icon: 'edit',        label: 'Modifier' },
-  { icon: 'delete',      label: 'Supprimer' },
-]
-
 const NAV_BTN_CLS = `p-3 rounded-lg text-outline border border-outline-variant/80 hover:bg-primary-fixed
   transition-colors duration-150 active:scale-[0.94]
   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim
   disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100`
-
-const SkillTag = memo(function SkillTag({ skill }) {
-  return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap"
-      style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-primary)' }}
-    >
-      {skill}
-    </span>
-  )
-})
-
-const JobOfferRow = memo(function JobOfferRow({ offer }) {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef(null)
-
-  const closeMenu = useCallback(() => setMenuOpen(false), [])
-  const toggleMenu = useCallback(() => setMenuOpen((prev) => !prev), [])
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const handleOutsideClick = (e) => {
-      if (!menuRef.current?.contains(e.target)) closeMenu()
-    }
-    document.addEventListener('mousedown', handleOutsideClick)
-    return () => document.removeEventListener('mousedown', handleOutsideClick)
-  }, [menuOpen, closeMenu])
-
-  const visibleSkills = (offer.skills ?? []).slice(0, 3)
-  const remainingSkills = Math.max(0, (offer.skills ?? []).length - 3)
-
-  return (
-    <tr className="group transition-colors duration-150 hover:bg-primary-fixed/40">
-      <td className="px-6 py-4 max-w-64">
-        <p className="text-[14px] font-semibold text-on-surface leading-snug truncate">
-          {offer.title}
-        </p>
-      </td>
-
-      <td className="px-6 py-4">
-        <div className="flex flex-wrap gap-1.5">
-          {visibleSkills.map((skill) => (
-            <SkillTag key={skill} skill={skill} />
-          ))}
-          {remainingSkills > 0 && (
-            <span className="text-[11px] font-medium text-text-muted self-center">
-              +{remainingSkills}
-            </span>
-          )}
-          {visibleSkills.length === 0 && (
-            <span className="text-[13px] text-text-muted">—</span>
-          )}
-        </div>
-      </td>
-
-      <td className="px-6 py-4 text-center">
-        {offer.experienceYears != null ? (
-          <span className="text-[13px] font-medium text-on-surface-variant tabular-nums">
-            {offer.experienceYears} an{offer.experienceYears > 1 ? 's' : ''}
-          </span>
-        ) : (
-          <span className="text-[13px] text-text-muted">—</span>
-        )}
-      </td>
-
-      <td className="px-6 py-4 text-center">
-        <span
-          className="text-[14px] font-bold tabular-nums"
-          style={{ color: 'var(--color-primary)' }}
-        >
-          {offer.candidates ?? 0}
-        </span>
-      </td>
-
-      <td className="px-6 py-4 text-[13px] text-outline tabular-nums whitespace-nowrap">
-        {offer.publishedAt ?? '—'}
-      </td>
-
-      <td className="px-6 py-4 text-center">
-        {offer.fileUrl ? (
-          <a
-            href={offer.fileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Voir le fichier : ${offer.title}`}
-            className="inline-flex items-center justify-center p-1.5 rounded-lg text-outline
-              hover:bg-primary-fixed/60 hover:text-primary transition-colors duration-150
-              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim"
-          >
-            <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
-          </a>
-        ) : (
-          <span className="text-[13px] text-text-muted">—</span>
-        )}
-      </td>
-
-      <td className="px-6 py-4">
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={toggleMenu}
-            className={`p-1.5 rounded-lg text-outline hover:bg-primary-fixed/60 hover:text-primary active:scale-[0.95]
-              transition-all duration-150
-              focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim
-              ${menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-            aria-label={`Plus d'options pour ${offer.title}`}
-            aria-expanded={menuOpen}
-            aria-haspopup="menu"
-          >
-            <span className="material-symbols-outlined text-[20px]">more_horiz</span>
-          </button>
-
-          {menuOpen && (
-            <div
-              role="menu"
-              className="absolute right-0 top-8 z-50 bg-white rounded-xl py-1 min-w-[168px]"
-              style={{
-                boxShadow: '0 4px 20px rgba(79,0,103,0.14)',
-                border: '1px solid rgba(79,0,103,0.08)',
-              }}
-            >
-              {MENU_ITEMS.map(({ icon, label }) => (
-                <button
-                  key={label}
-                  role="menuitem"
-                  onClick={closeMenu}
-                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-[13px] font-medium text-on-surface
-                    hover:bg-primary-fixed/60 hover:text-primary transition-colors duration-100"
-                >
-                  <span className="material-symbols-outlined text-[16px] text-outline">{icon}</span>
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </td>
-    </tr>
-  )
-})
 
 function SkeletonRow() {
   return (

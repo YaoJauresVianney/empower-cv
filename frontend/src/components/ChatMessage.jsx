@@ -47,7 +47,10 @@ const ChatMessage = ({ message, onLoadMore }) => {
                 className="load-more-button"
                 onClick={() => onLoadMore(message.pagination.next_offset)}
               >
-                📋 Voir les 30 candidats suivants
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }} aria-hidden="true">
+                  expand_more
+                </span>
+                Voir les 30 candidats suivants
               </button>
             )}
           </div>

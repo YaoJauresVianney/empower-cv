@@ -69,10 +69,42 @@ export const getAuthUser = () => {
 
 export const getJobOffers = () => api.get('api/jobs')
 
-export const getCandidates = (page = 1, search = '', signal = null) =>
-  api.get('api/candidates', { params: { page, search }, signal })
+export const getJobOffer = (id) => api.get(`api/jobs/${id}`)
+
+export const getJobShortlists = (id) => api.get(`api/jobs/${id}/shortlists`)
+
+export const getShortlistStatus = (id) => api.get(`api/shortlists/${id}/status`)
+
+export const getCandidates = (page = 1, search = '', filters = {}, signal = null) => {
+  const params = { page, search }
+
+  for (const [key, val] of Object.entries(filters)) {
+    if (Array.isArray(val)) {
+      if (val.length) params[key] = val // serialized as key[]=a&key[]=b
+    } else if (val !== '' && val != null) {
+      params[key] = val
+    }
+  }
+
+  return api.get('api/candidates', { params, signal })
+}
+
+export const getCandidateStats = () => api.get('api/candidates/stats')
+
+export const getCandidateRoles     = () => api.get('api/candidates/roles')
+export const getCandidateLocations = () => api.get('api/candidates/locations')
+export const getCandidateSectors   = () => api.get('api/candidates/sectors')
+export const getCandidateJobTypes  = () => api.get('api/candidates/job-types')
+export const getCandidateLanguages = () => api.get('api/candidates/languages')
+export const getCandidateSkills    = () => api.get('api/candidates/skills')
+
+export const getCandidate = (id) =>
+  api.get(`api/candidates/${id}`)
 
 export const parseCandidateCv = (id) =>
   api.post(`api/candidates/${id}/parse-cv`)
+
+export const getCandidateParseStatus = (id) =>
+  api.get(`api/candidates/${id}/parse-status`)
 
 export default api
