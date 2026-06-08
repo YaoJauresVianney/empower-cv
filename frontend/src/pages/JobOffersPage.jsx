@@ -12,10 +12,9 @@ import '../dashboard.css'
 function buildStats(offers) {
   const totalCandidates = offers.reduce((sum, o) => sum + (o.candidates ?? 0), 0)
   const withCandidates = offers.filter((o) => (o.candidates ?? 0) > 0).length
-  const avgExperience = offers.length > 0
-    ? Math.round(
-        offers.reduce((sum, o) => sum + (o.experienceYears ?? 0), 0) / offers.length,
-      )
+  const withExp = offers.filter((o) => (o.experienceYears ?? 0) > 0)
+  const avgExperience = withExp.length > 0
+    ? Math.round(withExp.reduce((sum, o) => sum + o.experienceYears, 0) / withExp.length)
     : 0
   const conversionRate = offers.length > 0
     ? Math.round((withCandidates / offers.length) * 100)
