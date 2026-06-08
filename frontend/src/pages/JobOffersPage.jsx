@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import AppLayout from '../components/AppLayout'
 import PageHeader from '../components/PageHeader'
 import FilterBar from '../components/FilterBar'
@@ -90,6 +90,10 @@ export default function JobOffersPage() {
     return () => { cancelled = true }
   }, [])
 
+  const handleOfferUpdate = useCallback((id, patch) => {
+    setOffers((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)))
+  }, [])
+
   const stats = useMemo(() => buildStats(offers), [offers])
 
   const filteredOffers = useMemo(
@@ -137,6 +141,7 @@ export default function JobOffersPage() {
         offers={filteredOffers}
         totalCount={offers.length}
         loading={loading}
+        onOfferUpdate={handleOfferUpdate}
       />
     </AppLayout>
   )

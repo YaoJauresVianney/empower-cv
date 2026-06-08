@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import BackButton from '../components/BackButton'
 import SkillTag from '../components/SkillTag'
-import { getJobOffer, getJobShortlists } from '../services/api'
+import { getJobOffer, getJobShortlists, generateShortlist, getShortlistStatus } from '../services/api'
 import '../dashboard.css'
 
 const STATUS_CFG = {
@@ -13,12 +14,13 @@ const STATUS_CFG = {
   failed:     { label: 'Échouée',      bg: 'bg-error-container',      text: 'text-error' },
 }
 
-function SectionCard({ title, icon, children }) {
+function SectionCard({ title, icon, children, headerAction }) {
   return (
     <div className="animate-in bg-white rounded-2xl p-5 shadow-purple-sm">
       <div className="flex items-center gap-2 mb-4">
         <span className="material-symbols-outlined text-[18px]" style={{ color: '#4f0067' }}>{icon}</span>
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">{title}</h2>
+        {headerAction && <div className="ml-auto">{headerAction}</div>}
       </div>
       {children}
     </div>
@@ -62,25 +64,71 @@ function ShortlistRow({ shortlist, onClick }) {
 export default function JobOfferDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [offer, setOffer]           = useState(null)
-  const [loading, setLoading]       = useState(true)
-  const [error, setError]           = useState(null)
-  const [shortlists, setShortlists] = useState([])
+  const queryClient = useQueryClient()
+
+  const [generatingId, setGeneratingId] = useState(null)
+  const [generateError, setGenerateError] = useState(null)
+  const errorTimerRef = useRef(null)
+
+  const { data: offer, isLoading: offerLoading, isError: offerError } = useQuery({
+    queryKey: ['job-offer', id],
+    queryFn: () => getJobOffer(id).then((res) => res.data?.data ?? res.data),
+    retry: 1,
+  })
+
+  const { data: shortlists = [], isLoading: shortlistsLoading, isError: shortlistsError } = useQuery({
+    queryKey: ['job-shortlists', id],
+    queryFn: () => getJobShortlists(id).then((res) => res.data?.data ?? []),
+    retry: 1,
+  })
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
-    Promise.all([
-      getJobOffer(id),
-      getJobShortlists(id),
-    ])
-      .then(([offerRes, slRes]) => {
-        setOffer(offerRes.data?.data ?? offerRes.data)
-        setShortlists(slRes.data?.data ?? [])
-      })
-      .catch(() => setError("Impossible de charger l'offre."))
-      .finally(() => setLoading(false))
-  }, [id])
+    if (!generatingId) return
+
+    let attempts = 0
+    const MAX = 40
+
+    const poll = async () => {
+      if (attempts >= MAX) { setGeneratingId(null); return }
+      attempts++
+      try {
+        const res = await getShortlistStatus(generatingId)
+        const status = res.data?.status
+        if (status === 'completed' || status === 'failed') {
+          setGeneratingId(null)
+          if (status === 'failed') {
+            setGenerateError('La génération a échoué.')
+            errorTimerRef.current = setTimeout(() => setGenerateError(null), 5000)
+          }
+          queryClient.invalidateQueries({ queryKey: ['job-shortlists', id] })
+        }
+      } catch { /* ignore transient errors */ }
+    }
+
+    poll()
+    const interval = setInterval(poll, 3000)
+    return () => clearInterval(interval)
+  }, [generatingId, id, queryClient])
+
+  useEffect(() => () => clearTimeout(errorTimerRef.current), [])
+
+  const handleGenerate = async () => {
+    if (generatingId) return
+    setGenerateError(null)
+    try {
+      const res = await generateShortlist(id)
+      setGeneratingId(res.data?.shortlist_id)
+    } catch (err) {
+      const msg = err?.response?.data?.message ?? 'Impossible de lancer la génération.'
+      setGenerateError(msg)
+      errorTimerRef.current = setTimeout(() => setGenerateError(null), 5000)
+    }
+  }
+
+  const canGenerate = offer?.parse_status === 'completed' && !generatingId
+
+  const loading = offerLoading || shortlistsLoading
+  const error   = offerError || shortlistsError ? "Impossible de charger l'offre." : null
 
   if (loading) {
     return (
@@ -186,7 +234,37 @@ export default function JobOfferDetailPage() {
       </div>
 
       {/* Shortlists */}
-      <SectionCard title={`Shortlists (${shortlists.length})`} icon="playlist_add_check">
+      <SectionCard
+        title={`Shortlists (${shortlists.length})`}
+        icon="playlist_add_check"
+        headerAction={
+          <button
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+            title={offer?.parse_status !== 'completed' ? "L'offre doit être analysée avant de générer une shortlist" : undefined}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold
+              transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: '#4f0067', color: '#fff' }}
+          >
+            {generatingId ? (
+              <>
+                <span className="material-symbols-outlined text-[14px]" style={{ animation: 'spin 1s linear infinite' }}>progress_activity</span>
+                Génération…
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+                Générer une shortlist
+              </>
+            )}
+          </button>
+        }
+      >
+        {generateError && (
+          <p className="text-[12px] font-medium mb-3" style={{ color: 'var(--color-error)' }}>
+            {generateError}
+          </p>
+        )}
         {shortlists.length === 0 ? (
           <div className="py-8 text-center">
             <span className="material-symbols-outlined text-[32px] text-text-muted block mb-2">

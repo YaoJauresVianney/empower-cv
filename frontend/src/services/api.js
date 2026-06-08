@@ -73,6 +73,8 @@ export const getJobOffer = (id) => api.get(`api/jobs/${id}`)
 
 export const getJobShortlists = (id) => api.get(`api/jobs/${id}/shortlists`)
 
+export const generateShortlist = (jobId) => api.post(`api/jobs/${jobId}/shortlists`)
+
 export const getShortlistStatus = (id) => api.get(`api/shortlists/${id}/status`)
 
 export const getCandidates = (page = 1, search = '', filters = {}, signal = null) => {
@@ -106,5 +108,11 @@ export const parseCandidateCv = (id) =>
 
 export const getCandidateParseStatus = (id) =>
   api.get(`api/candidates/${id}/parse-status`)
+
+export const parseJobOffer = (id) =>
+  api.post(`api/jobs/${id}/parse`)
+
+export const getJobOfferParseStatus = (id) =>
+  api.get(`api/jobs/${id}/parse-status`)
 
 export default api

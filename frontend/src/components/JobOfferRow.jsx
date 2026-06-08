@@ -1,20 +1,82 @@
 import { memo, useCallback, useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SkillTag from './SkillTag'
+import { parseJobOffer, getJobOfferParseStatus } from '../services/api'
 
-const JobOfferRow = memo(function JobOfferRow({ offer }) {
+const POLL_INTERVAL_MS  = 3000
+const POLL_MAX_ATTEMPTS = 40
+
+const PARSE_STATUS_BADGE = {
+  completed:  { cls: 'bg-green-50 text-green-700',      icon: 'check_circle',      label: 'Analysée' },
+  processing: { cls: 'bg-amber-50 text-amber-700',      icon: 'progress_activity', label: 'En cours' },
+  pending:    { cls: 'bg-amber-50 text-amber-700',      icon: 'progress_activity', label: 'En cours' },
+  failed:     { cls: 'bg-error-container text-error',   icon: 'error',             label: 'Échec' },
+}
+
+const JobOfferRow = memo(function JobOfferRow({ offer, onOfferUpdate }) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef(null)
+  const [parseError, setParseError] = useState(false)
+  const menuRef      = useRef(null)
+  const errorTimerRef = useRef(null)
 
-  const closeMenu = useCallback(() => setMenuOpen(false), [])
+  const status      = offer.parse_status ?? null
+  const isInProgress = status === 'pending' || status === 'processing'
+
+  useEffect(() => () => clearTimeout(errorTimerRef.current), [])
+
+  // Auto-polling while in progress — same pattern as CandidateRow
+  useEffect(() => {
+    if (!isInProgress) return
+    let cancelled = false
+    let attempts  = 0
+    let timer     = null
+
+    const check = () => {
+      getJobOfferParseStatus(offer.id)
+        .then((res) => {
+          if (cancelled) return
+          const next       = res.data?.parse_status ?? null
+          const parsedData = res.data?.parsed_data  ?? null
+          onOfferUpdate?.(offer.id, { parse_status: next, ...(parsedData ? { parsed_data: parsedData } : {}) })
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (cancelled) return
+          attempts += 1
+          if (attempts < POLL_MAX_ATTEMPTS) timer = setTimeout(check, POLL_INTERVAL_MS)
+        })
+    }
+    timer = setTimeout(check, POLL_INTERVAL_MS)
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') { attempts = 0; clearTimeout(timer); check() }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [isInProgress, offer.id, onOfferUpdate])
+
+  const handleParse = useCallback(() => {
+    if (isInProgress) return
+    setMenuOpen(false)
+    setParseError(false)
+    const prev = { parse_status: offer.parse_status ?? null }
+    onOfferUpdate?.(offer.id, { parse_status: 'pending' })
+    parseJobOffer(offer.id)
+      .catch(() => {
+        onOfferUpdate?.(offer.id, prev)
+        setParseError(true)
+        errorTimerRef.current = setTimeout(() => setParseError(false), 3000)
+      })
+  }, [offer.id, offer.parse_status, isInProgress, onOfferUpdate])
+
+  const closeMenu  = useCallback(() => setMenuOpen(false), [])
   const toggleMenu = useCallback(() => setMenuOpen((prev) => !prev), [])
-
-  const menuItems = [
-    { icon: 'open_in_new', label: "Voir l'offre", onClick: () => { closeMenu(); navigate(`/jobs/${offer.id}`) } },
-    { icon: 'edit',        label: 'Modifier',      onClick: closeMenu },
-    { icon: 'delete',      label: 'Supprimer',     onClick: closeMenu },
-  ]
 
   useEffect(() => {
     if (!menuOpen) return
@@ -25,8 +87,19 @@ const JobOfferRow = memo(function JobOfferRow({ offer }) {
     return () => document.removeEventListener('mousedown', handleOutsideClick)
   }, [menuOpen, closeMenu])
 
-  const visibleSkills = (offer.skills ?? []).slice(0, 3)
+  const visibleSkills   = (offer.skills ?? []).slice(0, 3)
   const remainingSkills = Math.max(0, (offer.skills ?? []).length - 3)
+  const parseBadge      = PARSE_STATUS_BADGE[status] ?? null
+  const canParse        = offer.fileUrl && status !== 'completed' && !isInProgress
+
+  const menuItems = [
+    { icon: 'open_in_new', label: "Voir l'offre", onClick: () => { closeMenu(); navigate(`/jobs/${offer.id}`) } },
+    { icon: 'edit',        label: 'Modifier',      onClick: closeMenu },
+    { icon: 'delete',      label: 'Supprimer',     onClick: closeMenu },
+    ...(canParse
+      ? [{ icon: 'auto_awesome', label: status === 'failed' ? "Relancer l'analyse" : "Analyser l'offre", onClick: handleParse }]
+      : []),
+  ]
 
   return (
     <tr className="group transition-colors duration-150 hover:bg-primary-fixed/40">
@@ -52,7 +125,7 @@ const JobOfferRow = memo(function JobOfferRow({ offer }) {
         </div>
       </td>
 
-<td className="px-6 py-4 text-center">
+      <td className="px-6 py-4 text-center">
         <span
           className="text-[14px] font-bold tabular-nums"
           style={{ color: 'var(--color-primary)' }}
@@ -66,25 +139,40 @@ const JobOfferRow = memo(function JobOfferRow({ offer }) {
       </td>
 
       <td className="px-6 py-4 text-center">
-        {offer.fileUrl ? (
-          <a
-            href={offer.fileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Voir le fichier : ${offer.title}`}
-            className="inline-flex items-center justify-center p-1.5 rounded-lg text-outline
-              hover:bg-primary-fixed/60 hover:text-primary transition-colors duration-150
-              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim"
-          >
-            <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
-          </a>
-        ) : (
-          <span className="text-[13px] text-text-muted">—</span>
-        )}
+        <div className="flex flex-col items-center gap-1.5">
+          {offer.fileUrl ? (
+            <a
+              href={offer.fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Voir le fichier : ${offer.title}`}
+              className="inline-flex items-center justify-center p-1.5 rounded-lg text-outline
+                hover:bg-primary-fixed/60 hover:text-primary transition-colors duration-150
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim"
+            >
+              <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
+            </a>
+          ) : (
+            <span className="text-[13px] text-text-muted">—</span>
+          )}
+          {parseBadge && (
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${parseBadge.cls}`}>
+              <span className={`material-symbols-outlined text-[11px] ${isInProgress ? 'animate-spin' : ''}`}>
+                {parseBadge.icon}
+              </span>
+              {parseBadge.label}
+            </span>
+          )}
+        </div>
       </td>
 
       <td className="px-6 py-4">
         <div className="relative" ref={menuRef}>
+          {parseError && (
+            <span className="absolute right-8 top-1.5 text-[11px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-md text-error bg-error-container">
+              Erreur
+            </span>
+          )}
           <button
             onClick={toggleMenu}
             className={`p-1.5 rounded-lg text-outline hover:bg-primary-fixed/60 hover:text-primary active:scale-[0.95]

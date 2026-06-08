@@ -47,7 +47,7 @@ function buildPaginationLabel(visibleCount, totalCount) {
   return `Affichage 1–${visibleCount} sur ${totalCount} offres`
 }
 
-export default function JobOffersTable({ offers = [], totalCount = 0, loading = false }) {
+export default function JobOffersTable({ offers = [], totalCount = 0, loading = false, onOfferUpdate }) {
   const isEmpty = !loading && offers.length === 0
 
   return (
@@ -75,7 +75,7 @@ export default function JobOffersTable({ offers = [], totalCount = 0, loading = 
               ? Array.from({ length: 5 }, (_, i) => <SkeletonRow key={i} />)
               : isEmpty
                 ? <EmptyState />
-                : offers.map((offer) => <JobOfferRow key={offer.id} offer={offer} />)
+                : offers.map((offer) => <JobOfferRow key={offer.id} offer={offer} onOfferUpdate={onOfferUpdate} />)
             }
           </tbody>
         </table>
