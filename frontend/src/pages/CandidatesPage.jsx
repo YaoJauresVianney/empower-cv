@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
 import PageHeader from '../components/PageHeader'
 import FilterBar from '../components/FilterBar'
@@ -55,37 +56,94 @@ const SORT_OPTIONS = [
 export default function CandidatesPage() {
   const { getUser } = useAuth()
   const user = getUser()
+  const queryClient = useQueryClient()
 
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [search, setSearch]           = useState('')
+  const [search, setSearch]             = useState('')
   const [debouncedSearch, setDebounced] = useState('')
-  const [page, setPage]               = useState(1)
-  const [candidates, setCandidates]   = useState([])
-  const [meta, setMeta]               = useState(null)
-  const [loading, setLoading]         = useState(true)
-  const [error, setError]             = useState(null)
-  const [cvStats, setCvStats]         = useState(null)
-  const [cv, setCv]                   = useState('')
-  const [parseStatus, setParseStatus] = useState('')
-  const [role, setRole]               = useState('')
-  const [sort, setSort]               = useState('recent')
-  const [experience, setExperience]   = useState('')
-  const [location, setLocation]       = useState([])
-  const [locations, setLocations]     = useState([])
-  const [sector, setSector]           = useState('')
-  const [sectors, setSectors]         = useState([])
-  const [jobType, setJobType]         = useState('')
-  const [jobTypes, setJobTypes]       = useState([])
-  const [language, setLanguage]       = useState([])
-  const [languages, setLanguages]     = useState([])
-  const [skill, setSkill]             = useState([])
-  const [skills, setSkills]           = useState([])
-  const [roles, setRoles]             = useState([])
+  const [page, setPage]                 = useState(1)
+  const [cv, setCv]                     = useState('')
+  const [parseStatus, setParseStatus]   = useState('')
+  const [role, setRole]                 = useState([])
+  const [sort, setSort]                 = useState('recent')
+  const [experience, setExperience]     = useState('')
+  const [location, setLocation]         = useState([])
+  const [sector, setSector]             = useState('')
+  const [jobType, setJobType]           = useState('')
+  const [language, setLanguage]         = useState([])
+  const [skill, setSkill]               = useState([])
 
-  const roleOptions = [
-    { label: 'Tous les rôles', value: '' },
-    ...roles.map((r) => ({ label: r, value: r })),
-  ]
+  // Stable string keys for array filters — avoids new references on every render
+  const roleKey     = role.join('|')
+  const locationKey = location.join('|')
+  const languageKey = language.join('|')
+  const skillKey    = skill.join('|')
+
+  // Static data — fetched once, never stale
+  const { data: cvStats } = useQuery({
+    queryKey: ['candidateStats'],
+    queryFn: () => getCandidateStats().then(res => res.data),
+    staleTime: Infinity,
+  })
+
+  const { data: roles = [] } = useQuery({
+    queryKey: ['candidateRoles'],
+    queryFn: () => getCandidateRoles().then(res => res.data?.data ?? []),
+    staleTime: Infinity,
+  })
+
+  const { data: locations = [] } = useQuery({
+    queryKey: ['candidateLocations'],
+    queryFn: () => getCandidateLocations().then(res => res.data?.data ?? []),
+    staleTime: Infinity,
+  })
+
+  const { data: sectors = [] } = useQuery({
+    queryKey: ['candidateSectors'],
+    queryFn: () => getCandidateSectors().then(res => res.data?.data ?? []),
+    staleTime: Infinity,
+  })
+
+  const { data: jobTypes = [] } = useQuery({
+    queryKey: ['candidateJobTypes'],
+    queryFn: () => getCandidateJobTypes().then(res => res.data?.data ?? []),
+    staleTime: Infinity,
+  })
+
+  const { data: languages = [] } = useQuery({
+    queryKey: ['candidateLanguages'],
+    queryFn: () => getCandidateLanguages().then(res => res.data?.data ?? []),
+    staleTime: Infinity,
+  })
+
+  const { data: skills = [] } = useQuery({
+    queryKey: ['candidateSkills'],
+    queryFn: () => getCandidateSkills().then(res => res.data?.data ?? []),
+    staleTime: Infinity,
+  })
+
+  // Main candidates query — signal injected automatically by React Query (replaces AbortController)
+  const { data: candidatesData, isLoading, isError } = useQuery({
+    queryKey: ['candidates', page, debouncedSearch, cv, parseStatus, roleKey, sort, experience, locationKey, sector, jobType, languageKey, skillKey],
+    queryFn: ({ signal }) => getCandidates(
+      page, debouncedSearch,
+      { cv, parse_status: parseStatus, role, sort, experience, location, sector, job_type: jobType, language, skill },
+      signal
+    ).then(res => ({ candidates: res.data?.data ?? [], meta: res.data?.meta ?? null })),
+    placeholderData: keepPreviousData,
+  })
+
+  const candidates = candidatesData?.candidates ?? []
+  const meta       = candidatesData?.meta ?? null
+
+  // Debounce search — timer is an external system, setState in callback is fine
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebounced(search)
+      setPage(1)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [search])
 
   const sectorOptions = [
     { label: 'Tous les secteurs', value: '' },
@@ -101,71 +159,19 @@ export default function CandidatesPage() {
   const handleParseStatus = (v) => { setParseStatus(v); setPage(1) }
   const handleRole        = (v) => { setRole(v);        setPage(1) }
   const handleSort        = (v) => { setSort(v);        setPage(1) }
-  const handleExperience  = (v) => { setExperience(v); setPage(1) }
-  const handleLocation    = (v) => { setLocation(v);   setPage(1) }
-  const handleSector      = (v) => { setSector(v);     setPage(1) }
-  const handleJobType     = (v) => { setJobType(v);   setPage(1) }
-  const handleLanguage    = (v) => { setLanguage(v);  setPage(1) }
-  const handleSkill       = (v) => { setSkill(v);     setPage(1) }
+  const handleExperience  = (v) => { setExperience(v);  setPage(1) }
+  const handleLocation    = (v) => { setLocation(v);    setPage(1) }
+  const handleSector      = (v) => { setSector(v);      setPage(1) }
+  const handleJobType     = (v) => { setJobType(v);     setPage(1) }
+  const handleLanguage    = (v) => { setLanguage(v);    setPage(1) }
+  const handleSkill       = (v) => { setSkill(v);       setPage(1) }
 
-  // location / language / skill are arrays — re-run the fetch effect when their
-  // contents change, not their (always-new) reference.
-  const locationKey = location.join('|')
-  const languageKey = language.join('|')
-  const skillKey    = skill.join('|')
-
-  useEffect(() => {
-    getCandidateStats()
-      .then((res) => setCvStats(res.data))
-      .catch(() => {})
-    getCandidateRoles()
-      .then((res) => setRoles(res.data?.data ?? []))
-      .catch(() => {})
-    getCandidateLocations()
-      .then((res) => setLocations(res.data?.data ?? []))
-      .catch(() => {})
-    getCandidateSectors()
-      .then((res) => setSectors(res.data?.data ?? []))
-      .catch(() => {})
-    getCandidateJobTypes()
-      .then((res) => setJobTypes(res.data?.data ?? []))
-      .catch(() => {})
-    getCandidateLanguages()
-      .then((res) => setLanguages(res.data?.data ?? []))
-      .catch(() => {})
-    getCandidateSkills()
-      .then((res) => setSkills(res.data?.data ?? []))
-      .catch(() => {})
-  }, [])
-
-  // Debounce search — reset to page 1 on new query
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setDebounced(search)
-      setPage(1)
-    }, 400)
-    return () => clearTimeout(t)
-  }, [search])
-
-  // Fetch on page or search change
-  useEffect(() => {
-    const controller = new AbortController()
-    setLoading(true)
-    setError(null)
-    getCandidates(page, debouncedSearch, { cv, parse_status: parseStatus, role, sort, experience, location, sector, job_type: jobType, language, skill }, controller.signal)
-      .then((res) => {
-        setCandidates(res.data?.data ?? [])
-        setMeta(res.data?.meta ?? null)
-      })
-      .catch((err) => {
-        if (err?.code === 'ERR_CANCELED') return
-        console.error('[CandidatesPage] fetch error', err?.response ?? err)
-        setError('Impossible de charger les candidats.')
-      })
-      .finally(() => setLoading(false))
-    return () => controller.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedSearch, cv, parseStatus, role, sort, experience, locationKey, sector, jobType, languageKey, skillKey])
+  const handleCandidateUpdate = useCallback((id, patch) => {
+    queryClient.setQueriesData(
+      { queryKey: ['candidates'] },
+      (old) => old ? { ...old, candidates: old.candidates.map((c) => (c.id === id ? { ...c, ...patch } : c)) } : old
+    )
+  }, [queryClient])
 
   return (
     <AppLayout>
@@ -211,7 +217,13 @@ export default function CandidatesPage() {
         />
         <FilterSelect options={CV_OPTIONS}           value={cv}          onChange={handleCv} />
         <FilterSelect options={PARSE_STATUS_OPTIONS} value={parseStatus} onChange={handleParseStatus} />
-        <FilterSelect options={roleOptions}          value={role}        onChange={handleRole} />
+        <MultiSelect
+          options={roles}
+          value={role}
+          onChange={handleRole}
+          placeholder="Rôles"
+          searchPlaceholder="Rechercher un rôle…"
+        />
         <FilterSelect options={SORT_OPTIONS}         value={sort}        onChange={handleSort} />
       </FilterBar>
 
@@ -247,14 +259,15 @@ export default function CandidatesPage() {
         </div>
       )}
 
-      {error && (
-        <p className="text-sm text-red-500 mb-4">{error}</p>
+      {isError && (
+        <p className="text-sm text-red-500 mb-4">Impossible de charger les candidats.</p>
       )}
 
       <CandidateTable
-        candidates={loading ? [] : candidates}
+        candidates={isLoading ? [] : candidates}
         meta={meta}
         onPageChange={setPage}
+        onCandidateUpdate={handleCandidateUpdate}
       />
 
       {user?.id && <ChatWidget userId={user.id} />}

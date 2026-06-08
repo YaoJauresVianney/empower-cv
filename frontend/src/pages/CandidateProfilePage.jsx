@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
 import StatusBadge from '../components/StatusBadge'
 import CandidateAvatar from '../components/CandidateAvatar'
 import BackButton from '../components/BackButton'
-import { STATUS_CONFIG } from '../constants/candidates'
 import { getCandidate, parseCandidateCv, getCandidateParseStatus } from '../services/api'
 import '../dashboard.css'
 
@@ -84,9 +84,12 @@ export default function CandidateProfilePage() {
   const location = useLocation()
   const shortlistScore = location.state?.score ?? null
   const shortlistName  = location.state?.shortlistName ?? null
-  const [candidate, setCandidate] = useState(null)
-  const [loading, setLoading]     = useState(true)
-  const [error, setError]         = useState(null)
+  const queryClient = useQueryClient()
+  const { data: candidate, isLoading, isError } = useQuery({
+    queryKey: ['candidate', id],
+    queryFn: () => getCandidate(id).then(res => res.data?.data ?? res.data),
+    retry: 1,
+  })
   const [parseState, setParseState] = useState('idle') // idle | loading | success | error
   const pollRef = useRef(null)
   const attemptsRef = useRef(0)
@@ -121,7 +124,9 @@ export default function CandidateProfilePage() {
 
               if (status === 'completed') {
                 stopPolling()
-                setCandidate(prev => (prev ? { ...prev, parsed_data: parsed } : prev))
+                queryClient.setQueryData(['candidate', id], prev =>
+                  prev ? { ...prev, parsed_data: parsed } : prev
+                )
                 setParseState('success')
               } else if (status === 'failed') {
                 stopPolling()
@@ -135,20 +140,9 @@ export default function CandidateProfilePage() {
         }, PARSE_POLL_INTERVAL)
       })
       .catch(() => setParseState('error'))
-  }, [id, parseState, stopPolling])
+  }, [id, parseState, stopPolling, queryClient])
 
-  useEffect(() => {
-    setLoading(true)
-    setError(null)
-    getCandidate(id)
-      .then(res => setCandidate(res.data?.data ?? res.data))
-      .catch(() => setError('Impossible de charger le profil.'))
-      .finally(() => setLoading(false))
-  }, [id])
-
-  useEffect(() => stopPolling, [stopPolling])
-
-  if (loading) {
+  if (isLoading) {
     return (
       <AppLayout>
         <div className="flex items-center justify-center h-64">
@@ -160,12 +154,12 @@ export default function CandidateProfilePage() {
     )
   }
 
-  if (error || !candidate) {
+  if (isError || !candidate) {
     return (
       <AppLayout>
         <div className="flex flex-col items-center justify-center h-64 gap-3">
           <span className="material-symbols-outlined text-[44px] text-text-muted">person_off</span>
-          <p className="text-[14px] text-text-muted">{error ?? 'Candidat introuvable.'}</p>
+          <p className="text-[14px] text-text-muted">{isError ? 'Impossible de charger le profil.' : 'Candidat introuvable.'}</p>
           <button
             onClick={() => navigate('/candidates')}
             className="text-[13px] font-semibold hover:underline"
@@ -180,7 +174,6 @@ export default function CandidateProfilePage() {
 
   const name      = candidate.name ?? 'Nom inconnu'
   const status    = candidate.status ?? 'Nouveau'
-  const statusCfg = STATUS_CONFIG[status] ?? STATUS_CONFIG['Nouveau']
   const parsed    = candidate.parsed_data
 
   return (

@@ -11,10 +11,18 @@
 }
 
 .upload-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: 600;
   color: #333;
+}
+
+.upload-header h3 .header-icon {
+  font-size: 20px;
+  color: #4f0067;
 }
 
 .upload-subtitle {
@@ -54,8 +62,9 @@
   color: #6b7280;
 }
 
-.upload-icon {
+.upload-icon.material-symbols-outlined {
   font-size: 32px;
+  color: #4f0067;
 }
 
 .file-selected {
@@ -65,8 +74,9 @@
   color: #333;
 }
 
-.file-icon {
+.file-icon.material-symbols-outlined {
   font-size: 20px;
+  color: #4f0067;
 }
 
 .file-name {
@@ -94,7 +104,7 @@
   font-size: 13px;
 }
 
-.error-icon {
+.error-icon.material-symbols-outlined {
   font-size: 16px;
 }
 

@@ -1,6 +1,6 @@
 import { memo, useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { parseCandidateCv } from '../services/api'
+import { parseCandidateCv, getCandidateParseStatus } from '../services/api'
 import CandidateAvatar from './CandidateAvatar'
 
 const TABLE_COLUMNS = [
@@ -11,16 +11,30 @@ const TABLE_COLUMNS = [
   { label: '',         cls: '' },
 ]
 
-const CandidateRow = memo(function CandidateRow({ candidate }) {
+const POLL_INTERVAL_MS = 3000
+const POLL_MAX_ATTEMPTS = 40 // ~2 min, garde-fou si aucun worker ne tourne
+
+// Badge d'analyse piloté par parse_status (pending/processing/completed/failed/null)
+const STATUS_BADGE = {
+  completed:  { cls: 'bg-green-50 text-green-700',      icon: 'check_circle',      label: 'Analysé' },
+  processing: { cls: 'bg-amber-50 text-amber-700',      icon: 'progress_activity', label: 'En cours' },
+  pending:    { cls: 'bg-amber-50 text-amber-700',      icon: 'progress_activity', label: 'En cours' },
+  failed:     { cls: 'bg-error-container text-error',   icon: 'error',             label: 'Échec' },
+  default:    { cls: 'bg-surface-variant text-outline', icon: 'hourglass_empty',   label: 'Non analysé' },
+}
+
+const CandidateRow = memo(function CandidateRow({ candidate, onUpdate }) {
   const navigate = useNavigate()
   const name = candidate.name ?? 'Nom inconnu'
+  const status = candidate.parse_status ?? null
+  const isInProgress = status === 'pending' || status === 'processing'
   const [menuOpen, setMenuOpen]     = useState(false)
-  const [parseState, setParseState] = useState('idle') // idle | loading | success | error
+  const [parseError, setParseError] = useState(false)
   const [menuPos, setMenuPos]       = useState(null)
-  const btnRef   = useRef(null)
-  const timerRef = useRef(null)
+  const btnRef        = useRef(null)
+  const errorTimerRef = useRef(null)
 
-  useEffect(() => () => clearTimeout(timerRef.current), [])
+  useEffect(() => () => clearTimeout(errorTimerRef.current), [])
 
   const handleToggle = useCallback(() => {
     if (!menuOpen && btnRef.current) {
@@ -34,17 +48,58 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
     setMenuOpen(v => !v)
   }, [menuOpen])
 
+  // Auto-polling piloté par le statut : tant que le candidat est pending/processing
+  // (déclenché par un clic « Parser » OU présent dès le chargement), on interroge le
+  // statut réel jusqu'à un état terminal. Ré-armé quand l'onglet reprend le focus, ce
+  // qui rattrape le cas où le parsing finit après l'épuisement de la fenêtre de polling.
+  useEffect(() => {
+    if (!isInProgress) return
+    let cancelled = false
+    let attempts = 0
+    let timer = null
+
+    const check = () => {
+      getCandidateParseStatus(candidate.id)
+        .then((res) => {
+          if (cancelled) return
+          const next = res.data?.parse_status ?? null
+          onUpdate?.(candidate.id, { parse_status: next, is_parsed: next === 'completed' })
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (cancelled) return
+          attempts += 1
+          if (attempts < POLL_MAX_ATTEMPTS) timer = setTimeout(check, POLL_INTERVAL_MS)
+        })
+    }
+    timer = setTimeout(check, POLL_INTERVAL_MS)
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') { attempts = 0; clearTimeout(timer); check() }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [isInProgress, candidate.id, onUpdate])
+
   const handleParseCv = useCallback(() => {
-    if (parseState === 'loading') return
-    setParseState('loading')
+    if (isInProgress) return
     setMenuOpen(false)
+    setParseError(false)
+    const prev = { parse_status: candidate.parse_status ?? null, is_parsed: candidate.is_parsed ?? false }
+    // Optimistic : bascule en « En cours » → déclenche l'effet d'auto-polling ci-dessus
+    onUpdate?.(candidate.id, { parse_status: 'pending', is_parsed: false })
     parseCandidateCv(candidate.id)
-      .then(() => setParseState('success'))
-      .catch(() => setParseState('error'))
-      .finally(() => {
-        timerRef.current = setTimeout(() => setParseState('idle'), 3000)
+      .catch(() => {
+        onUpdate?.(candidate.id, prev) // rollback
+        setParseError(true)
+        errorTimerRef.current = setTimeout(() => setParseError(false), 3000)
       })
-  }, [candidate.id, parseState])
+  }, [candidate.id, candidate.parse_status, candidate.is_parsed, isInProgress, onUpdate])
 
   return (
     <tr className="group transition-colors duration-150 hover:bg-primary-fixed/40">
@@ -61,19 +116,15 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
         <span className="truncate block">{candidate.role ?? '—'}</span>
       </td>
       <td className="px-6 py-4">
-        {candidate.is_parsed
-          ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-50 text-green-700">
-              <span className="material-symbols-outlined text-[13px]">check_circle</span>
-              Analysé
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-surface-variant text-outline">
-              <span className="material-symbols-outlined text-[13px]">hourglass_empty</span>
-              Non analysé
+        {(() => {
+          const badge = STATUS_BADGE[status] ?? STATUS_BADGE.default
+          return (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${badge.cls}`}>
+              <span className={`material-symbols-outlined text-[13px] ${isInProgress ? 'animate-spin' : ''}`}>{badge.icon}</span>
+              {badge.label}
             </span>
           )
-        }
+        })()}
       </td>
       <td className="px-6 py-4">
         {candidate.cv_link
@@ -111,13 +162,9 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
             <span className="material-symbols-outlined text-[20px]">more_horiz</span>
           </button>
 
-          {parseState !== 'idle' && (
-            <span className={`absolute right-8 top-1.5 text-[11px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-md ${
-              parseState === 'loading' ? 'text-outline bg-primary-fixed' :
-              parseState === 'success' ? 'text-primary bg-primary-fixed' :
-              'text-error bg-error-container'
-            }`}>
-              {parseState === 'loading' ? 'Lancement…' : parseState === 'success' ? 'Lancé ✓' : 'Erreur'}
+          {parseError && (
+            <span className="absolute right-8 top-1.5 text-[11px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-md text-error bg-error-container">
+              Erreur
             </span>
           )}
 
@@ -130,7 +177,9 @@ const CandidateRow = memo(function CandidateRow({ candidate }) {
               {[
                 { icon: 'person',  label: 'Voir profil',  onClick: () => { setMenuOpen(false); navigate(`/candidates/${candidate.id}`) } },
                 { icon: 'article', label: 'Voir CV',      onClick: () => setMenuOpen(false) },
-                ...(candidate.cv_link && !candidate.is_parsed ? [{ icon: 'auto_awesome', label: 'Parser le CV', onClick: handleParseCv }] : []),
+                ...(candidate.cv_link && status !== 'completed' && !isInProgress
+                  ? [{ icon: 'auto_awesome', label: status === 'failed' ? 'Relancer l\'analyse' : 'Parser le CV', onClick: handleParseCv }]
+                  : []),
               ].map(({ icon, label, onClick }) => (
                 <button
                   key={label}
@@ -170,7 +219,7 @@ function EmptyState() {
   )
 }
 
-export default function CandidateTable({ candidates = [], meta = null, onPageChange }) {
+export default function CandidateTable({ candidates = [], meta = null, onPageChange, onCandidateUpdate }) {
   const currentPage = meta?.current_page ?? 1
   const lastPage    = meta?.last_page    ?? 1
   const total       = meta?.total        ?? candidates.length
@@ -200,7 +249,7 @@ export default function CandidateTable({ candidates = [], meta = null, onPageCha
           <tbody>
             {candidates.length === 0
               ? <EmptyState />
-              : candidates.map((c) => <CandidateRow key={c.id} candidate={c} />)
+              : candidates.map((c) => <CandidateRow key={c.id} candidate={c} onUpdate={onCandidateUpdate} />)
             }
           </tbody>
         </table>

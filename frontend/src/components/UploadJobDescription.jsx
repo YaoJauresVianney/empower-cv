@@ -82,7 +82,10 @@ const UploadJobDescription = ({ userId, onUploadSuccess, onCancel }) => {
   return (
     <div className="upload-job-description">
       <div className="upload-header">
-        <h3>📄 Uploader une fiche de poste</h3>
+        <h3>
+          <span className="material-symbols-outlined header-icon">description</span>
+          Uploader une fiche de poste
+        </h3>
         <p className="upload-subtitle">
           Formats acceptés : PDF, DOC, DOCX (max 10 MB)
         </p>
@@ -92,7 +95,7 @@ const UploadJobDescription = ({ userId, onUploadSuccess, onCancel }) => {
         <label htmlFor="file-input" className="file-input-label">
           {selectedFile ? (
             <div className="file-selected">
-              <span className="file-icon">📎</span>
+              <span className="file-icon material-symbols-outlined">attach_file</span>
               <span className="file-name">{selectedFile.name}</span>
               <span className="file-size">
                 ({(selectedFile.size / 1024).toFixed(1)} KB)
@@ -100,7 +103,7 @@ const UploadJobDescription = ({ userId, onUploadSuccess, onCancel }) => {
             </div>
           ) : (
             <div className="file-placeholder">
-              <span className="upload-icon">⬆️</span>
+              <span className="upload-icon material-symbols-outlined">upload_file</span>
               <span>Cliquez pour sélectionner un fichier</span>
             </div>
           )}
@@ -117,7 +120,7 @@ const UploadJobDescription = ({ userId, onUploadSuccess, onCancel }) => {
 
         {error && (
           <div className="upload-error">
-            <span className="error-icon">⚠️</span>
+            <span className="error-icon material-symbols-outlined">error</span>
             <span>{error}</span>
           </div>
         )}
