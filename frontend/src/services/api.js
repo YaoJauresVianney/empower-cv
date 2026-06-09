@@ -77,6 +77,8 @@ export const generateShortlist = (jobId) => api.post(`api/jobs/${jobId}/shortlis
 
 export const getShortlistStatus = (id) => api.get(`api/shortlists/${id}/status`)
 
+export const getShortlistStats = () => api.get('api/shortlists/stats')
+
 export const getCandidates = (page = 1, search = '', filters = {}, signal = null) => {
   const params = { page, search }
 
