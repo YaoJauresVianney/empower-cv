@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import BackButton from '../components/BackButton'
 import SkillTag from '../components/SkillTag'
+import SectionCard from '../components/SectionCard'
+import InfoRow from '../components/InfoRow'
 import { getJobOffer, getJobShortlists, generateShortlist, getShortlistStatus } from '../services/api'
 import '../dashboard.css'
 
@@ -12,28 +14,6 @@ const STATUS_CFG = {
   processing: { label: 'En cours',     bg: 'bg-primary-fixed',        text: 'text-primary' },
   completed:  { label: 'Terminée',     bg: 'bg-[#dcfce7]',            text: 'text-[#16a34a]' },
   failed:     { label: 'Échouée',      bg: 'bg-error-container',      text: 'text-error' },
-}
-
-function SectionCard({ title, icon, children, headerAction }) {
-  return (
-    <div className="animate-in bg-white rounded-2xl p-5 shadow-purple-sm">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="material-symbols-outlined text-[18px]" style={{ color: '#4f0067' }}>{icon}</span>
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">{title}</h2>
-        {headerAction && <div className="ml-auto">{headerAction}</div>}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function InfoRow({ label, value }) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-2.5 border-b border-outline-variant/30 last:border-0">
-      <span className="text-[12px] text-text-muted font-medium whitespace-nowrap">{label}</span>
-      <span className="text-[13px] font-semibold text-on-surface truncate text-right">{value ?? '—'}</span>
-    </div>
-  )
 }
 
 function ShortlistRow({ shortlist, onClick }) {

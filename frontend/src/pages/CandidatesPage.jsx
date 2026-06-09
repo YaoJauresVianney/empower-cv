@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import AppLayout from '../components/AppLayout'
 import PageHeader from '../components/PageHeader'
@@ -8,10 +8,18 @@ import FilterSelect from '../components/FilterSelect'
 import MultiSelect from '../components/MultiSelect'
 import StatCard from '../components/StatCard'
 import CandidateTable from '../components/CandidateTable'
-
 import ChatWidget from '../components/ChatWidget'
 import { useAuth } from '../hooks/useAuth'
-import { getCandidates, getCandidateStats, getCandidateRoles, getCandidateLocations, getCandidateSectors, getCandidateJobTypes, getCandidateLanguages, getCandidateSkills } from '../services/api'
+import {
+  getCandidates,
+  getCandidateStats,
+  getCandidateRoles,
+  getCandidateLocations,
+  getCandidateSectors,
+  getCandidateJobTypes,
+  getCandidateLanguages,
+  getCandidateSkills,
+} from '../services/api'
 import '../dashboard.css'
 
 const STATIC_STATS = [
@@ -26,32 +34,41 @@ const STATIC_STATS = [
 
 const CV_OPTIONS = [
   { label: 'Tous les CVs', value: '' },
-  { label: 'Avec CV',      value: 'with' },
-  { label: 'Sans CV',      value: 'without' },
+  { label: 'Avec CV', value: 'with' },
+  { label: 'Sans CV', value: 'without' },
 ]
 
 const PARSE_STATUS_OPTIONS = [
   { label: 'Tous les statuts', value: '' },
-  { label: 'Analysé',          value: 'completed' },
-  { label: 'En cours',         value: 'in_progress' },
-  { label: 'Échec',            value: 'failed' },
-  { label: 'Non lancé',        value: 'none' },
+  { label: 'Analysé', value: 'completed' },
+  { label: 'En cours', value: 'in_progress' },
+  { label: 'Échec', value: 'failed' },
+  { label: 'Non lancé', value: 'none' },
 ]
 
 const EXPERIENCE_OPTIONS = [
-  { label: "Toute expérience", value: '' },
-  { label: '0 – 2 ans',        value: '0-2' },
-  { label: '3 – 5 ans',        value: '3-5' },
-  { label: '6 – 10 ans',       value: '6-10' },
-  { label: '10+ ans',          value: '10+' },
+  { label: 'Toute expérience', value: '' },
+  { label: '0 – 2 ans', value: '0-2' },
+  { label: '3 – 5 ans', value: '3-5' },
+  { label: '6 – 10 ans', value: '6-10' },
+  { label: '10+ ans', value: '10+' },
 ]
 
 const SORT_OPTIONS = [
   { label: 'Plus récent', value: 'recent' },
   { label: 'Plus ancien', value: 'oldest' },
-  { label: 'Nom A→Z',     value: 'name_asc' },
-  { label: 'Nom Z→A',     value: 'name_desc' },
+  { label: 'Nom A→Z', value: 'name_asc' },
+  { label: 'Nom Z→A', value: 'name_desc' },
 ]
+
+const ADVANCED_FILTERS_STYLE = { boxShadow: '0 1px 6px rgba(79,0,103,0.05)' }
+
+const createFilterHandler = (setter, resetPage) => (value) => {
+  setter(value)
+  resetPage(1)
+}
+
+const fetchStaticList = (apiFn) => () => apiFn().then((res) => res.data?.data ?? [])
 
 export default function CandidatesPage() {
   const { getUser } = useAuth()
@@ -59,19 +76,19 @@ export default function CandidatesPage() {
   const queryClient = useQueryClient()
 
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [search, setSearch]             = useState('')
-  const [debouncedSearch, setDebounced] = useState('')
-  const [page, setPage]                 = useState(1)
-  const [cv, setCv]                     = useState('')
-  const [parseStatus, setParseStatus]   = useState('')
-  const [role, setRole]                 = useState([])
-  const [sort, setSort]                 = useState('recent')
-  const [experience, setExperience]     = useState('')
-  const [location, setLocation]         = useState([])
-  const [sector, setSector]             = useState('')
-  const [jobType, setJobType]           = useState('')
-  const [language, setLanguage]         = useState([])
-  const [skill, setSkill]               = useState([])
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [cv, setCv] = useState('')
+  const [parseStatus, setParseStatus] = useState('')
+  const [role, setRole] = useState([])
+  const [sort, setSort] = useState('recent')
+  const [experience, setExperience] = useState('')
+  const [location, setLocation] = useState([])
+  const [sector, setSector] = useState('')
+  const [jobType, setJobType] = useState('')
+  const [language, setLanguage] = useState([])
+  const [skill, setSkill] = useState([])
 
   // Stable string keys for array filters — avoids new references on every render
   const roleKey     = role.join('|')
@@ -82,54 +99,59 @@ export default function CandidatesPage() {
   // Static data — fetched once, never stale
   const { data: cvStats } = useQuery({
     queryKey: ['candidateStats'],
-    queryFn: () => getCandidateStats().then(res => res.data),
+    queryFn: () => getCandidateStats().then((res) => res.data),
     staleTime: Infinity,
   })
 
   const { data: roles = [] } = useQuery({
     queryKey: ['candidateRoles'],
-    queryFn: () => getCandidateRoles().then(res => res.data?.data ?? []),
+    queryFn: fetchStaticList(getCandidateRoles),
     staleTime: Infinity,
   })
 
   const { data: locations = [] } = useQuery({
     queryKey: ['candidateLocations'],
-    queryFn: () => getCandidateLocations().then(res => res.data?.data ?? []),
+    queryFn: fetchStaticList(getCandidateLocations),
     staleTime: Infinity,
   })
 
   const { data: sectors = [] } = useQuery({
     queryKey: ['candidateSectors'],
-    queryFn: () => getCandidateSectors().then(res => res.data?.data ?? []),
+    queryFn: fetchStaticList(getCandidateSectors),
     staleTime: Infinity,
   })
 
   const { data: jobTypes = [] } = useQuery({
     queryKey: ['candidateJobTypes'],
-    queryFn: () => getCandidateJobTypes().then(res => res.data?.data ?? []),
+    queryFn: fetchStaticList(getCandidateJobTypes),
     staleTime: Infinity,
   })
 
   const { data: languages = [] } = useQuery({
     queryKey: ['candidateLanguages'],
-    queryFn: () => getCandidateLanguages().then(res => res.data?.data ?? []),
+    queryFn: fetchStaticList(getCandidateLanguages),
     staleTime: Infinity,
   })
 
   const { data: skills = [] } = useQuery({
     queryKey: ['candidateSkills'],
-    queryFn: () => getCandidateSkills().then(res => res.data?.data ?? []),
+    queryFn: fetchStaticList(getCandidateSkills),
     staleTime: Infinity,
   })
 
   // Main candidates query — signal injected automatically by React Query (replaces AbortController)
   const { data: candidatesData, isLoading, isError } = useQuery({
     queryKey: ['candidates', page, debouncedSearch, cv, parseStatus, roleKey, sort, experience, locationKey, sector, jobType, languageKey, skillKey],
-    queryFn: ({ signal }) => getCandidates(
-      page, debouncedSearch,
-      { cv, parse_status: parseStatus, role, sort, experience, location, sector, job_type: jobType, language, skill },
-      signal
-    ).then(res => ({ candidates: res.data?.data ?? [], meta: res.data?.meta ?? null })),
+    queryFn: ({ signal }) =>
+      getCandidates(
+        page,
+        debouncedSearch,
+        { cv, parse_status: parseStatus, role, sort, experience, location, sector, job_type: jobType, language, skill },
+        signal
+      ).then((res) => ({
+        candidates: res.data?.data ?? [],
+        meta: res.data?.meta ?? null,
+      })),
     placeholderData: keepPreviousData,
   })
 
@@ -138,38 +160,40 @@ export default function CandidatesPage() {
 
   // Debounce search — timer is an external system, setState in callback is fine
   useEffect(() => {
-    const t = setTimeout(() => {
-      setDebounced(search)
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
       setPage(1)
     }, 400)
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [search])
 
-  const sectorOptions = [
-    { label: 'Tous les secteurs', value: '' },
-    ...sectors.map((s) => ({ label: s, value: s })),
-  ]
+  const sectorOptions = useMemo(
+    () => [{ label: 'Tous les secteurs', value: '' }, ...sectors.map((s) => ({ label: s, value: s }))],
+    [sectors]
+  )
 
-  const jobTypeOptions = [
-    { label: 'Tous les contrats', value: '' },
-    ...jobTypes.map((j) => ({ label: j, value: j })),
-  ]
+  const jobTypeOptions = useMemo(
+    () => [{ label: 'Tous les contrats', value: '' }, ...jobTypes.map((j) => ({ label: j, value: j }))],
+    [jobTypes]
+  )
 
-  const handleCv          = (v) => { setCv(v);          setPage(1) }
-  const handleParseStatus = (v) => { setParseStatus(v); setPage(1) }
-  const handleRole        = (v) => { setRole(v);        setPage(1) }
-  const handleSort        = (v) => { setSort(v);        setPage(1) }
-  const handleExperience  = (v) => { setExperience(v);  setPage(1) }
-  const handleLocation    = (v) => { setLocation(v);    setPage(1) }
-  const handleSector      = (v) => { setSector(v);      setPage(1) }
-  const handleJobType     = (v) => { setJobType(v);     setPage(1) }
-  const handleLanguage    = (v) => { setLanguage(v);    setPage(1) }
-  const handleSkill       = (v) => { setSkill(v);       setPage(1) }
+  const handleCv          = createFilterHandler(setCv, setPage)
+  const handleParseStatus = createFilterHandler(setParseStatus, setPage)
+  const handleRole        = createFilterHandler(setRole, setPage)
+  const handleSort        = createFilterHandler(setSort, setPage)
+  const handleExperience  = createFilterHandler(setExperience, setPage)
+  const handleLocation    = createFilterHandler(setLocation, setPage)
+  const handleSector      = createFilterHandler(setSector, setPage)
+  const handleJobType     = createFilterHandler(setJobType, setPage)
+  const handleLanguage    = createFilterHandler(setLanguage, setPage)
+  const handleSkill       = createFilterHandler(setSkill, setPage)
 
   const handleCandidateUpdate = useCallback((id, patch) => {
     queryClient.setQueriesData(
       { queryKey: ['candidates'] },
-      (old) => old ? { ...old, candidates: old.candidates.map((c) => (c.id === id ? { ...c, ...patch } : c)) } : old
+      (old) => old
+        ? { ...old, candidates: old.candidates.map((c) => (c.id === id ? { ...c, ...patch } : c)) }
+        : old
     )
   }, [queryClient])
 
@@ -224,13 +248,13 @@ export default function CandidatesPage() {
           placeholder="Rôles"
           searchPlaceholder="Rechercher un rôle…"
         />
-        <FilterSelect options={SORT_OPTIONS}         value={sort}        onChange={handleSort} />
+        <FilterSelect options={SORT_OPTIONS} value={sort} onChange={handleSort} />
       </FilterBar>
 
       {showAdvanced && (
         <div
           className="flex flex-wrap items-center gap-3 mb-4 bg-white rounded-xl px-4 py-3"
-          style={{ boxShadow: '0 1px 6px rgba(79,0,103,0.05)' }}
+          style={ADVANCED_FILTERS_STYLE}
         >
           <FilterSelect options={EXPERIENCE_OPTIONS} value={experience} onChange={handleExperience} />
           <MultiSelect
@@ -240,8 +264,8 @@ export default function CandidatesPage() {
             placeholder="Villes"
             searchPlaceholder="Rechercher une ville…"
           />
-          <FilterSelect options={sectorOptions}      value={sector}     onChange={handleSector} />
-          <FilterSelect options={jobTypeOptions}     value={jobType}    onChange={handleJobType} />
+          <FilterSelect options={sectorOptions}  value={sector}  onChange={handleSector} />
+          <FilterSelect options={jobTypeOptions} value={jobType} onChange={handleJobType} />
           <MultiSelect
             options={languages}
             value={language}
