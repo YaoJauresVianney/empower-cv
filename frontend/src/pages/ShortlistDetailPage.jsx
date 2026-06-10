@@ -1,15 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useReducer } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import BackButton from '../components/BackButton'
 import { getShortlistStatus } from '../services/api'
 import '../dashboard.css'
 
-const STATUS_CFG = {
-  pending:    { label: 'En attente',  bg: 'bg-surface-container', text: 'text-outline' },
-  processing: { label: 'En cours',    bg: 'bg-primary-fixed',     text: 'text-primary' },
-  completed:  { label: 'Terminée',    bg: 'bg-[#dcfce7]',         text: 'text-[#16a34a]' },
-  failed:     { label: 'Échouée',     bg: 'bg-error-container',   text: 'text-error' },
+const SPIN_ANIMATION = 'spin 1s linear infinite'
+const PROCESSING_STATUSES = new Set(['pending', 'processing'])
+const POLL_INTERVAL_MS = 5000
+
+const INITIAL_FETCH_STATE = { data: null, loading: true, error: null }
+
+function fetchReducer(state, action) {
+  switch (action.type) {
+    case 'LOADING': return { data: null, loading: true, error: null }
+    case 'SUCCESS': return { data: action.data, loading: false, error: null }
+    case 'ERROR':   return { data: null, loading: false, error: action.error }
+    default:        return state
+  }
+}
+
+const STATUS_CONFIG = {
+  pending:    { label: 'En attente',  bg: 'bg-surface-container',    text: 'text-outline' },
+  processing: { label: 'En cours',    bg: 'bg-primary-fixed',         text: 'text-primary' },
+  completed:  { label: 'Terminée',    bg: 'bg-status-success-bg',     text: 'text-status-success-text' },
+  failed:     { label: 'Échouée',     bg: 'bg-error-container',       text: 'text-error' },
 }
 
 function ScoreBar({ score }) {
@@ -18,10 +33,13 @@ function ScoreBar({ score }) {
       <div className="flex-1 h-1.5 rounded-full bg-surface-container overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${score}%`, background: '#4f0067' }}
+          style={{ width: `${score}%`, background: 'var(--color-primary)' }}
         />
       </div>
-      <span className="text-[13px] font-bold tabular-nums w-9 text-right" style={{ color: '#4f0067' }}>
+      <span
+        className="text-[13px] font-bold tabular-nums w-9 text-right"
+        style={{ color: 'var(--color-primary)' }}
+      >
         {Math.round(score)}
       </span>
     </div>
@@ -52,8 +70,8 @@ function CandidateRow({ rank, candidate, onClick }) {
             href={candidate.cv_link}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Voir le CV"
-            className="inline-flex items-center justify-center p-1.5 rounded-lg text-outline
+            aria-label={`Voir le CV de ${candidate.candidate_name}`}
+            className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-outline
               hover:bg-primary-fixed/60 hover:text-primary transition-colors duration-150"
           >
             <span className="material-symbols-outlined text-[18px]">description</span>
@@ -67,33 +85,65 @@ function CandidateRow({ rank, candidate, onClick }) {
 }
 
 export default function ShortlistDetailPage() {
-  const { jobId, slId } = useParams()
+  const { jobId, slId: shortlistId } = useParams()
   const navigate = useNavigate()
 
-  const goToCandidate = (candidate) =>
-    navigate(`/candidates/${candidate.candidate_id}`, {
-      state: { score: candidate.score, shortlistName: data?.shortlist_name },
-    })
-  const [data, setData]     = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
+  const [{ data, loading, error }, dispatch] = useReducer(fetchReducer, INITIAL_FETCH_STATE)
+
+  const goToCandidate = useCallback(
+    (candidate) =>
+      navigate(`/candidates/${candidate.candidate_id}`, {
+        state: { score: candidate.score, shortlistName: data?.shortlist_name },
+      }),
+    [navigate, data?.shortlist_name],
+  )
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
-    getShortlistStatus(slId)
-      .then((res) => setData(res.data))
-      .catch(() => setError('Impossible de charger la shortlist.'))
-      .finally(() => setLoading(false))
-  }, [slId])
+    let cancelled = false
+    dispatch({ type: 'LOADING' })
+    getShortlistStatus(shortlistId)
+      .then((response) => {
+        if (!cancelled) dispatch({ type: 'SUCCESS', data: response.data })
+      })
+      .catch(() => {
+        if (!cancelled) dispatch({ type: 'ERROR', error: 'Impossible de charger la shortlist.' })
+      })
+    return () => { cancelled = true }
+  }, [shortlistId])
+
+  const status = data?.status
+
+  useEffect(() => {
+    if (!PROCESSING_STATUSES.has(status)) return undefined
+
+    let cancelled = false
+    const intervalId = setInterval(() => {
+      getShortlistStatus(shortlistId)
+        .then((response) => {
+          if (!cancelled) dispatch({ type: 'SUCCESS', data: response.data })
+        })
+        .catch(() => {
+          // Erreur transitoire : on garde l'affichage actuel, nouvel essai au prochain tick.
+        })
+    }, POLL_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      clearInterval(intervalId)
+    }
+  }, [status, shortlistId])
 
   if (loading) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-64">
+        <div
+          role="status"
+          aria-label="Chargement de la shortlist"
+          className="flex items-center justify-center h-64"
+        >
           <span
             className="material-symbols-outlined text-[36px] text-text-muted"
-            style={{ animation: 'spin 1s linear infinite' }}
+            style={{ animation: SPIN_ANIMATION }}
           >
             progress_activity
           </span>
@@ -105,13 +155,12 @@ export default function ShortlistDetailPage() {
   if (error || !data) {
     return (
       <AppLayout>
-        <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <div role="alert" className="flex flex-col items-center justify-center h-64 gap-3">
           <span className="material-symbols-outlined text-[44px] text-text-muted">playlist_remove</span>
           <p className="text-[14px] text-text-muted">{error ?? 'Shortlist introuvable.'}</p>
           <button
             onClick={() => navigate(`/jobs/${jobId}`)}
-            className="text-[13px] font-semibold hover:underline"
-            style={{ color: '#4f0067' }}
+            className="text-[13px] font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
           >
             Retour à l'offre
           </button>
@@ -120,37 +169,36 @@ export default function ShortlistDetailPage() {
     )
   }
 
-  const cfg = STATUS_CFG[data.status] ?? STATUS_CFG.pending
+  const statusConfig = STATUS_CONFIG[data.status] ?? STATUS_CONFIG.pending
   const results = data.results ?? []
-  const isProcessing = data.status === 'pending' || data.status === 'processing'
+  const isProcessing = PROCESSING_STATUSES.has(data.status)
+  const plural = results.length !== 1 ? 's' : ''
 
   return (
     <AppLayout>
       <BackButton onClick={() => navigate(`/jobs/${jobId}`)}>Retour à l'offre</BackButton>
 
-      {/* Header */}
-      <div
-        className="animate-in bg-white rounded-2xl p-6 mb-5 flex items-center justify-between gap-4"
-        style={{ boxShadow: '0 2px 14px rgba(79,0,103,0.07)' }}
-      >
+      <div className="animate-in bg-white rounded-2xl p-6 mb-5 flex items-center justify-between gap-4 shadow-purple-sm">
         <div>
           <h1 className="text-[20px] font-bold text-on-surface">{data.shortlist_name}</h1>
           <p className="text-[13px] text-text-muted mt-1">
-            {results.length} candidat{results.length !== 1 ? 's' : ''} classé{results.length !== 1 ? 's' : ''}
+            {results.length} candidat{plural} classé{plural}
           </p>
         </div>
-        <span className={`px-3 py-1.5 rounded-xl text-[12px] font-semibold ${cfg.bg} ${cfg.text}`}>
-          {cfg.label}
+        <span className={`px-3 py-1.5 rounded-xl text-[12px] font-semibold ${statusConfig.bg} ${statusConfig.text}`}>
+          {statusConfig.label}
         </span>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl overflow-hidden shadow-purple-sm">
+      <div
+        className="animate-in bg-white rounded-2xl overflow-hidden shadow-purple-sm"
+        style={{ animationDelay: '80ms' }}
+      >
         {isProcessing ? (
           <div className="py-16 text-center">
             <span
               className="material-symbols-outlined text-[36px] block mb-3"
-              style={{ color: '#4f0067', animation: 'spin 1s linear infinite' }}
+              style={{ color: 'var(--color-primary)', animation: SPIN_ANIMATION }}
             >
               progress_activity
             </span>
@@ -165,21 +213,70 @@ export default function ShortlistDetailPage() {
             <p className="text-[14px] font-semibold text-on-surface">Aucun candidat dans cette shortlist.</p>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-outline-variant/50">
-                <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted w-10">#</th>
-                <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">Candidat</th>
-                <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted w-48">Score</th>
-                <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted text-center w-16">CV</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((c, i) => (
-                <CandidateRow key={i} rank={i + 1} candidate={c} onClick={() => goToCandidate(c)} />
+          <>
+            {/* Mobile card list — hidden above sm breakpoint */}
+            <div className="sm:hidden divide-y divide-outline-variant/30">
+              {results.map((candidate, index) => (
+                <div
+                  key={candidate.candidate_id ?? index}
+                  className="px-4 py-4 flex items-center gap-3 cursor-pointer hover:bg-primary-fixed/20 transition-colors duration-150"
+                  onClick={() => goToCandidate(candidate)}
+                >
+                  <span className="text-[13px] font-bold text-outline tabular-nums w-6 flex-shrink-0">
+                    #{index + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-semibold text-on-surface truncate">
+                      {candidate.candidate_name}
+                    </p>
+                    <div className="mt-2">
+                      <ScoreBar score={candidate.score} />
+                    </div>
+                  </div>
+                  {candidate.cv_link && (
+                    <a
+                      href={candidate.cv_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Voir le CV de ${candidate.candidate_name}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-shrink-0 inline-flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-outline
+                        hover:bg-primary-fixed/60 hover:text-primary transition-colors duration-150"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">description</span>
+                    </a>
+                  )}
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            {/* Desktop table — hidden below sm breakpoint */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <caption className="sr-only">
+                  Candidats classés dans la shortlist {data.shortlist_name}
+                </caption>
+                <thead>
+                  <tr className="border-b border-outline-variant/50">
+                    <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted w-10">#</th>
+                    <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">Candidat</th>
+                    <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted w-48">Score</th>
+                    <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted text-center w-16">CV</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.map((candidate, index) => (
+                    <CandidateRow
+                      key={candidate.candidate_id ?? index}
+                      rank={index + 1}
+                      candidate={candidate}
+                      onClick={() => goToCandidate(candidate)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </AppLayout>

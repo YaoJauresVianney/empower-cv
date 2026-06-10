@@ -9,29 +9,45 @@ import { useAuth } from '../hooks/useAuth'
 import { getJobOffers } from '../services/api'
 import '../dashboard.css'
 
+const STAT_CARD_ANIMATION_STEP_MS = 65
+
+function extractOffers(response) {
+  return response.data?.data ?? response.data ?? []
+}
+
 function buildStats(offers) {
-  const totalCandidates = offers.reduce((sum, o) => sum + (o.candidates ?? 0), 0)
-  const withCandidates = offers.filter((o) => (o.candidates ?? 0) > 0).length
-  const withExp = offers.filter((o) => (o.experienceYears ?? 0) > 0)
-  const avgExperience = withExp.length > 0
-    ? Math.round(withExp.reduce((sum, o) => sum + o.experienceYears, 0) / withExp.length)
-    : 0
-  const conversionRate = offers.length > 0
-    ? Math.round((withCandidates / offers.length) * 100)
-    : 0
+  const totalCandidates = offers.reduce((sum, offer) => sum + (offer.candidates ?? 0), 0)
+  const offersWithCandidates = offers.filter((offer) => (offer.candidates ?? 0) > 0)
+  const offersWithExperience = offers.filter((offer) => (offer.experienceYears ?? 0) > 0)
+
+  const avgExperience =
+    offersWithExperience.length > 0
+      ? Math.round(
+          offersWithExperience.reduce((sum, offer) => sum + offer.experienceYears, 0) /
+            offersWithExperience.length,
+        )
+      : 0
+
+  const conversionRate =
+    offers.length > 0
+      ? Math.round((offersWithCandidates.length / offers.length) * 100)
+      : 0
+
+  const avgCandidatesPerOffer = Math.round(totalCandidates / Math.max(offers.length, 1))
+  const withCandidatesCount = offersWithCandidates.length
 
   return [
     {
       label: 'Offres publiées',
       value: String(offers.length),
-      trend: `${withCandidates} avec candidature${withCandidates !== 1 ? 's' : ''}`,
+      trend: `${withCandidatesCount} avec candidature${withCandidatesCount !== 1 ? 's' : ''}`,
       trendIcon: 'work',
       positive: null,
     },
     {
       label: 'Candidatures reçues',
       value: String(totalCandidates),
-      trend: `Moy. ${Math.round(totalCandidates / Math.max(offers.length, 1))} par offre`,
+      trend: `Moy. ${avgCandidatesPerOffer} par offre`,
       trendIcon: 'person_add',
       positive: totalCandidates > 0,
     },
@@ -52,19 +68,20 @@ function buildStats(offers) {
 
 function matchesSearch(offer, query) {
   if (query === '') return true
-  const q = query.toLowerCase()
+  const normalizedQuery = query.toLowerCase()
   return (
-    offer.title.toLowerCase().includes(q) ||
-    (offer.skills ?? []).some((s) => s.toLowerCase().includes(q))
+    offer.title.toLowerCase().includes(normalizedQuery) ||
+    (offer.skills ?? []).some((skill) => skill.toLowerCase().includes(normalizedQuery))
   )
 }
 
 export default function JobOffersPage() {
   const { getUser } = useAuth()
-  const userName = getUser()?.name ?? 'recruteur'
+  const user = getUser()
+  const userName = user?.name ?? 'recruteur'
 
   const [offers, setOffers] = useState([])
-  const [loading, setLoading] = useState(true)  // true dès le départ — évite le flash de contenu vide
+  const [loading, setLoading] = useState(true) // true dès le départ — évite le flash de contenu vide
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
 
@@ -72,25 +89,25 @@ export default function JobOffersPage() {
     let cancelled = false
 
     getJobOffers()
-      .then(({ data }) => {
-        if (!cancelled) setOffers(data?.data ?? data ?? [])
+      .then((response) => {
+        if (!cancelled) setOffers(extractOffers(response))
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(
-            err?.response?.data?.message ?? 'Impossible de charger les offres.',
-          )
+          setError(err?.response?.data?.message ?? 'Impossible de charger les offres.')
         }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const handleOfferUpdate = useCallback((id, patch) => {
-    setOffers((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)))
+    setOffers((prev) => prev.map((offer) => (offer.id === id ? { ...offer, ...patch } : offer)))
   }, [])
 
   const stats = useMemo(() => buildStats(offers), [offers])
@@ -109,8 +126,12 @@ export default function JobOffersPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {stats.map((stat, i) => (
-          <StatCard key={stat.label} {...stat} animationDelay={`${i * 65}ms`} />
+        {stats.map((stat, index) => (
+          <StatCard
+            key={stat.label}
+            {...stat}
+            animationDelay={`${index * STAT_CARD_ANIMATION_STEP_MS}ms`}
+          />
         ))}
       </div>
 
