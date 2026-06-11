@@ -7,6 +7,7 @@ import CandidateProfilePage from './pages/CandidateProfilePage'
 import JobOffersPage from './pages/JobOffersPage'
 import JobOfferDetailPage from './pages/JobOfferDetailPage'
 import ShortlistDetailPage from './pages/ShortlistDetailPage'
+import StatistiquesPage from './pages/StatistiquesPage'
 import Login from './pages/Login'
 import './App.css'
 
@@ -24,6 +25,7 @@ function App() {
           <Route path="/jobs"       element={<JobOffersPage />} />
           <Route path="/jobs/:id"                        element={<JobOfferDetailPage />} />
           <Route path="/jobs/:jobId/shortlists/:slId"  element={<ShortlistDetailPage />} />
+          <Route path="/statistics" element={<StatistiquesPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

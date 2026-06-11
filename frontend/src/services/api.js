@@ -79,6 +79,8 @@ export const getShortlistStatus = (id) => api.get(`api/shortlists/${id}/status`)
 
 export const getShortlistStats = () => api.get('api/shortlists/stats')
 
+export const getStats = () => api.get('api/stats')
+
 export const getCandidates = (page = 1, search = '', filters = {}, signal = null) => {
   const params = { page, search }
 

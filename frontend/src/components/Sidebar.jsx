@@ -6,8 +6,7 @@ const NAV_ITEMS = [
   { icon: 'dashboard', label: 'Tableau de bord', to: '/dashboard' },
   { icon: 'group',     label: 'Candidats',       to: '/candidates' },
   { icon: 'work',      label: 'Offres',           to: '/jobs' },
-  { icon: 'calendar_month', label: 'Entretiens', to: '/interviews' },
-  { icon: 'analytics', label: 'Analyses',         to: '/analytics' },
+  { icon: 'analytics', label: 'Statistiques', to: '/statistics' },
 ]
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -15,7 +14,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1
 export default function Sidebar({ onLogout, open, onClose }) {
   const bottomActions = [
     { icon: 'settings', label: 'Paramètres' },
-    { icon: 'help',     label: 'Support' },
+    { icon: 'help',     label: 'Documentation' },
     { icon: 'logout',   label: 'Se déconnecter', action: onLogout },
   ]
 

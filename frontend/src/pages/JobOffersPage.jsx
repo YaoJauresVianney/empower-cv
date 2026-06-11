@@ -7,6 +7,7 @@ import StatCard from '../components/StatCard'
 import JobOffersTable from '../components/JobOffersTable'
 import { useAuth } from '../hooks/useAuth'
 import { getJobOffers } from '../services/api'
+import ChatWidget from '../components/ChatWidget'
 import '../dashboard.css'
 
 const STAT_CARD_ANIMATION_STEP_MS = 65
@@ -163,6 +164,7 @@ export default function JobOffersPage() {
         loading={loading}
         onOfferUpdate={handleOfferUpdate}
       />
+      {user?.id && <ChatWidget />}
     </AppLayout>
   )
 }
