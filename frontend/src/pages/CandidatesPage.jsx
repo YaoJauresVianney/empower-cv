@@ -294,7 +294,7 @@ export default function CandidatesPage() {
         onCandidateUpdate={handleCandidateUpdate}
       />
 
-      {user?.id && <ChatWidget userId={user.id} />}
+      {user?.id && <ChatWidget />}
     </AppLayout>
   )
 }

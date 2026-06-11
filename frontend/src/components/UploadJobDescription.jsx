@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import api from '../services/api'
 import '../styles/UploadJobDescription.css'
 
-const UploadJobDescription = ({ userId, onUploadSuccess, onCancel }) => {
+const UploadJobDescription = ({ onUploadSuccess, onCancel }) => {
   const [selectedFile, setSelectedFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -54,7 +54,6 @@ const UploadJobDescription = ({ userId, onUploadSuccess, onCancel }) => {
     try {
       const formData = new FormData()
       formData.append('file', selectedFile)
-      formData.append('user_id', userId)
 
       const { data } = await api.post('api/job-descriptions', formData, {
         headers: {
@@ -154,7 +153,6 @@ const UploadJobDescription = ({ userId, onUploadSuccess, onCancel }) => {
 }
 
 UploadJobDescription.propTypes = {
-  userId: PropTypes.number.isRequired,
   onUploadSuccess: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
 }

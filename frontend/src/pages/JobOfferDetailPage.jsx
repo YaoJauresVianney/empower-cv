@@ -7,6 +7,7 @@ import SkillTag from '../components/SkillTag'
 import SectionCard from '../components/SectionCard'
 import InfoRow from '../components/InfoRow'
 import { getJobOffer, getJobShortlists, generateShortlist, getShortlistStatus } from '../services/api'
+import { formatRetryAt } from '../utils/formatters'
 import '../dashboard.css'
 
 const STATUS_CFG = {
@@ -48,11 +49,16 @@ export default function JobOfferDetailPage() {
 
   const [generatingId, setGeneratingId] = useState(null)
   const [generateError, setGenerateError] = useState(null)
+  const [rateLimit429, setRateLimit429] = useState(null)
+  const [expiredLimitTs, setExpiredLimitTs] = useState(0)
   const errorTimerRef = useRef(null)
 
   const { data: offer, isLoading: offerLoading, isError: offerError } = useQuery({
     queryKey: ['job-offer', id],
-    queryFn: () => getJobOffer(id).then((res) => res.data?.data ?? res.data),
+    queryFn: () => getJobOffer(id).then((res) => ({
+      ...(res.data?.data ?? res.data),
+      quota: res.data?.quota ?? null,
+    })),
     retry: 1,
   })
 
@@ -92,20 +98,38 @@ export default function JobOfferDetailPage() {
 
   useEffect(() => () => clearTimeout(errorTimerRef.current), [])
 
+  const quotaRetryTs = offer?.quota?.remaining === 0 && offer.quota.retry_at
+    ? new Date(offer.quota.retry_at).getTime()
+    : null
+  const limitTs = Math.max(rateLimit429?.getTime() ?? 0, quotaRetryTs ?? 0) || null
+  const rateLimitedUntil = limitTs && limitTs > expiredLimitTs ? new Date(limitTs) : null
+
+  useEffect(() => {
+    if (!limitTs) return
+    const delay = Math.max(0, limitTs - Date.now())
+    const timer = setTimeout(() => setExpiredLimitTs(limitTs), delay)
+    return () => clearTimeout(timer)
+  }, [limitTs])
+
   const handleGenerate = async () => {
     if (generatingId) return
     setGenerateError(null)
     try {
       const res = await generateShortlist(id)
       setGeneratingId(res.data?.shortlist_id)
+      queryClient.invalidateQueries({ queryKey: ['job-offer', id] })
     } catch (err) {
+      if (err?.response?.status === 429 && err.response.data?.error === 'rate_limit_reached') {
+        setRateLimit429(new Date(err.response.data.retry_at))
+        return
+      }
       const msg = err?.response?.data?.message ?? 'Impossible de lancer la génération.'
       setGenerateError(msg)
       errorTimerRef.current = setTimeout(() => setGenerateError(null), 5000)
     }
   }
 
-  const canGenerate = offer?.parse_status === 'completed' && !generatingId
+  const canGenerate = offer?.parse_status === 'completed' && !generatingId && !rateLimitedUntil
 
   const loading = offerLoading || shortlistsLoading
   const error   = offerError || shortlistsError ? "Impossible de charger l'offre." : null
@@ -240,6 +264,17 @@ export default function JobOfferDetailPage() {
           </button>
         }
       >
+        {rateLimitedUntil && (
+          <div className="flex items-start gap-2.5 mb-3 px-3.5 py-3 rounded-xl bg-surface-container">
+            <span className="material-symbols-outlined text-[18px] text-outline mt-0.5">schedule</span>
+            <p className="text-[12.5px] text-on-surface leading-relaxed">
+              Vous avez atteint votre limite de génération de shortlist.{' '}
+              <span className="font-semibold">
+                Vous pourrez en générer une {formatRetryAt(rateLimitedUntil)}.
+              </span>
+            </p>
+          </div>
+        )}
         {generateError && (
           <p className="text-[12px] font-medium mb-3" style={{ color: 'var(--color-error)' }}>
             {generateError}

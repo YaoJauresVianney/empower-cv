@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import api from '../services/api'
+import api, { getShortlistStats } from '../services/api'
 import ChatMessage from './ChatMessage'
 import UploadJobDescription from './UploadJobDescription'
+import { formatRetryAt } from '../utils/formatters'
 import '../styles/ChatWidget.css'
 
-const ChatWidget = ({ userId, jobDescriptionId = null }) => {
+const ChatWidget = ({ jobDescriptionId = null }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState([
     {
@@ -18,8 +19,11 @@ const ChatWidget = ({ userId, jobDescriptionId = null }) => {
   const [loading, setLoading] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
   const [currentJobDescriptionId, setCurrentJobDescriptionId] = useState(jobDescriptionId)
+  const [quota, setQuota] = useState(null)
   const messagesEndRef = useRef(null)
   const pollingIntervalRef = useRef(null)
+
+  const quotaRetryAt = quota?.remaining === 0 && quota.retry_at ? quota.retry_at : null
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -37,8 +41,20 @@ const ChatWidget = ({ userId, jobDescriptionId = null }) => {
     }
   }, [])
 
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    getShortlistStats()
+      .then((res) => {
+        if (!cancelled) setQuota(res.data?.quota ?? null)
+      })
+      .catch(() => { /* le quota est informatif, le serveur reste la barrière */ })
+    return () => { cancelled = true }
+  }, [isOpen])
+
   const handleQuickAction = (action) => {
     if (action === 'shortlist') {
+      if (quotaRetryAt) return
       setShowUpload(true)
       return
     }
@@ -138,7 +154,6 @@ const ChatWidget = ({ userId, jobDescriptionId = null }) => {
     try {
       const { data } = await api.post('api/chat', {
         message: 'Créer une shortlist de candidats',
-        user_id: userId,
         job_description_id: jobDescId,
         offset: offset,
       })
@@ -203,7 +218,6 @@ const ChatWidget = ({ userId, jobDescriptionId = null }) => {
     try {
       const { data } = await api.post('api/chat', {
         message: messageText,
-        user_id: userId,
         job_description_id: currentJobDescriptionId,
       })
 
@@ -299,7 +313,6 @@ const ChatWidget = ({ userId, jobDescriptionId = null }) => {
               <div className="chat-message bot-message">
                 <div className="message-bubble upload-bubble">
                   <UploadJobDescription
-                    userId={userId}
                     onUploadSuccess={handleUploadSuccess}
                     onCancel={handleUploadCancel}
                   />
@@ -348,13 +361,24 @@ const ChatWidget = ({ userId, jobDescriptionId = null }) => {
                 type="button"
                 className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left
                   bg-surface-container-lowest border border-outline-variant text-[13px] font-semibold text-on-surface
-                  transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_4px_16px_rgba(79,0,103,0.1)] active:scale-[0.98]"
+                  transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_4px_16px_rgba(79,0,103,0.1)] active:scale-[0.98]
+                  disabled:opacity-50 disabled:pointer-events-none"
                 onClick={() => handleQuickAction('shortlist')}
+                disabled={!!quotaRetryAt}
               >
                 <span className="w-8 h-8 rounded-lg grid place-items-center bg-primary-fixed text-primary shrink-0">
-                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">workspace_premium</span>
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                    {quotaRetryAt ? 'lock_clock' : 'workspace_premium'}
+                  </span>
                 </span>
-                <span className="flex-1">Créer une shortlist de candidats</span>
+                <span className="flex-1">
+                  Créer une shortlist de candidats
+                  {quotaRetryAt && (
+                    <span className="block mt-0.5 text-[11px] font-medium text-text-muted">
+                      Limite atteinte — disponible {formatRetryAt(quotaRetryAt)}
+                    </span>
+                  )}
+                </span>
                 <span className="material-symbols-outlined text-[18px] text-text-muted group-hover:text-primary transition-colors" aria-hidden="true">
                   chevron_right
                 </span>
@@ -396,7 +420,6 @@ const ChatWidget = ({ userId, jobDescriptionId = null }) => {
 }
 
 ChatWidget.propTypes = {
-  userId: PropTypes.number.isRequired,
   jobDescriptionId: PropTypes.number,
 }
 

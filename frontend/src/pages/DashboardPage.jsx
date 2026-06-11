@@ -137,7 +137,7 @@ export default function DashboardPage() {
         <HiringTrendsCard />
       </div>
 
-      {user?.id && <ChatWidget userId={user.id} />}
+      {user?.id && <ChatWidget />}
     </AppLayout>
   )
 }
