@@ -6,25 +6,24 @@ import SectionCard from '../components/SectionCard'
 import HorizontalBarChart from '../components/charts/HorizontalBarChart'
 import VerticalBarChart from '../components/charts/VerticalBarChart'
 import DonutChart from '../components/charts/DonutChart'
-import { CHART_PRIMARY, formatNumberFr } from '../components/charts/chartTheme'
+import { formatNumberFr, CHART_PALETTE } from '../components/charts/chartTheme'
 import { getStats } from '../services/api'
 import '../dashboard.css'
 
 function Skel({ h }) {
-  return <div className="animate-pulse rounded-lg bg-[#ede4ef]" style={{ height: h }} />
+  return <div aria-hidden="true" className="animate-pulse rounded-lg bg-surface-purple" style={{ height: h }} />
 }
 
 function StatsError({ onRetry }) {
   return (
     <div className="bg-white rounded-2xl p-8 shadow-purple-sm flex flex-col items-center gap-3">
       <span className="material-symbols-outlined text-[32px] text-error">error</span>
-      <p className="text-[14px] text-[#4f4351]">
+      <p className="text-[14px] text-on-surface-variant">
         Impossible de charger les statistiques. Vérifiez votre connexion puis réessayez.
       </p>
       <button
         onClick={onRetry}
-        className="mt-1 px-4 py-2 rounded-lg text-[13px] font-semibold text-white transition-colors duration-150"
-        style={{ background: CHART_PRIMARY }}
+        className="mt-1 px-4 min-h-[44px] rounded-lg text-[13px] font-semibold text-white bg-primary transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         Réessayer
       </button>
@@ -83,12 +82,16 @@ export default function StatistiquesPage() {
         subtitle="Vue d'ensemble de vos candidats, offres et performances de matching"
       />
 
+      <div role="status" aria-live="polite" className="sr-only">
+        {isLoading ? 'Chargement des statistiques…' : isError ? 'Erreur lors du chargement des statistiques.' : 'Statistiques chargées.'}
+      </div>
+
       {isError ? (
         <StatsError onRetry={refetch} />
       ) : (
         <>
           {/* KPIs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" aria-busy={isLoading} aria-label="Indicateurs clés">
             {isLoading
               ? Array.from({ length: 4 }).map((_, i) => <Skel key={i} h={130} />)
               : kpis.map((k, i) => (
@@ -97,57 +100,63 @@ export default function StatistiquesPage() {
           </div>
 
           {/* Rôles + Expérience */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5" aria-busy={isLoading}>
             <SectionCard title="Top 10 postes" icon="work_history">
-              {isLoading ? <Skel h={300} /> : <HorizontalBarChart data={c?.by_role} />}
+              {isLoading ? <Skel h={300} /> : (
+                <HorizontalBarChart data={c?.by_role} ariaLabel="Top 10 des postes les plus représentés parmi les candidats" />
+              )}
             </SectionCard>
             <SectionCard title="Répartition par expérience" icon="trending_up">
-              {isLoading ? <Skel h={180} /> : <VerticalBarChart data={c?.by_experience} />}
+              {isLoading ? <Skel h={180} /> : (
+                <VerticalBarChart data={c?.by_experience} ariaLabel="Répartition des candidats par niveau d'expérience" />
+              )}
             </SectionCard>
           </div>
 
           {/* Secteurs + Localisations */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5" aria-busy={isLoading}>
             <SectionCard title="Répartition par secteur" icon="category">
-              {isLoading ? <Skel h={260} /> : <DonutChart data={c?.by_sector} unit="candidats" />}
+              {isLoading ? <Skel h={260} /> : (
+                <DonutChart data={c?.by_sector} unit="candidats" ariaLabel="Répartition des candidats par secteur d'activité" />
+              )}
             </SectionCard>
             <SectionCard title="Top 10 localisations" icon="location_on">
-              {isLoading ? <Skel h={300} /> : <HorizontalBarChart data={c?.by_location} />}
+              {isLoading ? <Skel h={300} /> : (
+                <HorizontalBarChart data={c?.by_location} ariaLabel="Top 10 des localisations les plus fréquentes parmi les candidats" />
+              )}
             </SectionCard>
           </div>
 
           {/* Compétences + Langues */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5" aria-busy={isLoading}>
             <SectionCard title="Top 15 compétences" icon="psychology">
-              {isLoading ? <Skel h={440} /> : <HorizontalBarChart data={c?.by_skill} />}
+              {isLoading ? <Skel h={440} /> : (
+                <HorizontalBarChart data={c?.by_skill} ariaLabel="Top 15 des compétences les plus fréquentes parmi les candidats" />
+              )}
             </SectionCard>
             <SectionCard title="Top langues parlées" icon="translate">
-              {isLoading ? <Skel h={300} /> : <HorizontalBarChart data={c?.by_language} />}
+              {isLoading ? <Skel h={300} /> : (
+                <HorizontalBarChart data={c?.by_language} ariaLabel="Top des langues parlées par les candidats" />
+              )}
             </SectionCard>
           </div>
 
           {/* Offres + Distribution des scores */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-12" aria-busy={isLoading}>
             <SectionCard title="Offres d'emploi" icon="work">
               {isLoading ? (
                 <Skel h={110} />
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between py-3 border-b border-[#ede4ef]">
-                    <span className="text-[13px] text-[#4f4351]">Total offres publiées</span>
-                    <span
-                      className="text-[20px] font-bold tabular-nums"
-                      style={{ color: CHART_PRIMARY }}
-                    >
+                  <div className="flex items-center justify-between py-3 border-b border-surface-purple">
+                    <span className="text-[13px] text-on-surface-variant">Total offres publiées</span>
+                    <span className="text-[20px] font-bold tabular-nums text-primary">
                       {formatNumberFr(j?.total)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-3">
-                    <span className="text-[13px] text-[#4f4351]">Prêtes pour le matching</span>
-                    <span
-                      className="text-[20px] font-bold tabular-nums"
-                      style={{ color: CHART_PRIMARY }}
-                    >
+                    <span className="text-[13px] text-on-surface-variant">Prêtes pour le matching</span>
+                    <span className="text-[20px] font-bold tabular-nums text-primary">
                       {formatNumberFr(j?.parsed)}
                     </span>
                   </div>
@@ -157,10 +166,10 @@ export default function StatistiquesPage() {
                         <span>Taux de préparation</span>
                         <span className="font-semibold">{jobReadinessPct}%</span>
                       </div>
-                      <div className="w-full bg-[#ede4ef] rounded-full h-2 overflow-hidden">
+                      <div className="w-full bg-surface-purple rounded-full h-2 overflow-hidden">
                         <div
-                          className="h-2 rounded-full transition-all duration-700"
-                          style={{ width: `${jobReadinessPct}%`, background: CHART_PRIMARY }}
+                          className="h-2 rounded-full bg-primary transition-[width] duration-700"
+                          style={{ width: `${jobReadinessPct}%` }}
                         />
                       </div>
                     </div>
@@ -169,11 +178,15 @@ export default function StatistiquesPage() {
               )}
             </SectionCard>
 
-            <SectionCard title="Distribution des scores de matching" icon="leaderboard">
+            <SectionCard title="Distribution des scores de matching" icon="leaderboard" shadow="shadow-purple-md">
               {isLoading ? (
                 <Skel h={180} />
               ) : (
-                <VerticalBarChart data={m?.score_distribution} color="#710193" />
+                <VerticalBarChart
+                  data={m?.score_distribution}
+                  color={CHART_PALETTE[1]}
+                  ariaLabel="Distribution des scores de matching entre candidats et offres d'emploi"
+                />
               )}
             </SectionCard>
           </div>

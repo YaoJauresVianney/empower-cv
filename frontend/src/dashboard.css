@@ -57,9 +57,10 @@
   --font-family-sans: 'Manrope', sans-serif;
 
   /* Semantic UI tokens */
-  --color-text-muted: #9c8fa0;   /* Labels secondaires, métadonnées, placeholders */
+  --color-text-muted: #786b7d;   /* Labels secondaires, métadonnées, placeholders — 5.0:1 on white (WCAG AA) */
   --color-nav-icon: #6b4f7a;     /* Icônes inactives du sidebar sombre */
   --color-nav-hover: #c4a8d0;    /* Texte hover des actions bas de sidebar */
+  --color-surface-purple: #ede4ef; /* Fond léger teinté — skeleton, pistes de barres, séparateurs */
 
   /* Statuts candidats (hors palette principale) */
   --color-status-success-dot: #16a34a;
@@ -195,7 +196,18 @@
     outline-offset: 2px;
   }
 
+  .progress-bar-fill {
+    transition: width var(--progress-duration, 500ms);
+  }
+
   @media (prefers-reduced-motion: reduce) {
+    .animate-in {
+      animation: none;
+      opacity: 1;
+    }
+    .progress-bar-fill {
+      transition: none;
+    }
     .topbar-search,
     .topbar-icon-btn,
     .topbar-tab,

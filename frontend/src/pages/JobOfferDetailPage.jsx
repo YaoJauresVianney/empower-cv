@@ -212,26 +212,43 @@ export default function JobOfferDetailPage() {
       {/* Infos + Compétences */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <SectionCard title="Détails du poste" icon="work">
-          <InfoRow label="Secteur"         value={offer.sector} />
-          <InfoRow label="Type de contrat" value={offer.jobType} />
-          <InfoRow label="Localisation"    value={offer.location} />
+          <InfoRow label="Intitulé du poste" value={offer.jobTitle} />
+          <InfoRow label="Secteur"           value={offer.sector} />
+          <InfoRow label="Type de contrat"   value={offer.jobType} />
+          <InfoRow label="Télétravail"       value={offer.remotePolicy} />
+          <InfoRow label="Localisation"      value={offer.location} />
           <InfoRow
             label="Expérience requise"
             value={offer.experienceYears != null
               ? `${offer.experienceYears} an${offer.experienceYears > 1 ? 's' : ''}`
               : null}
           />
-          <InfoRow label="Candidatures" value={String(offer.candidates ?? 0)} />
+          <InfoRow label="Niveau"        value={offer.experienceLevel} />
+          <InfoRow label="Candidatures"  value={String(offer.candidates ?? 0)} />
         </SectionCard>
 
         <SectionCard title="Compétences clés" icon="psychology">
-          {offer.skills?.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {offer.skills.map((skill) => (
-                <SkillTag key={skill} skill={skill} />
-              ))}
+          {offer.requiredSkills?.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wide mb-1.5">Requises</p>
+              <div className="flex flex-wrap gap-2">
+                {offer.requiredSkills.map((skill) => (
+                  <SkillTag key={skill} skill={skill} />
+                ))}
+              </div>
             </div>
-          ) : (
+          )}
+          {offer.optionalSkills?.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wide mb-1.5">Souhaitées</p>
+              <div className="flex flex-wrap gap-2">
+                {offer.optionalSkills.map((skill) => (
+                  <SkillTag key={skill} skill={skill} />
+                ))}
+              </div>
+            </div>
+          )}
+          {!offer.requiredSkills?.length && !offer.optionalSkills?.length && (
             <p className="text-[13px] text-text-muted py-1">Aucune compétence renseignée.</p>
           )}
         </SectionCard>

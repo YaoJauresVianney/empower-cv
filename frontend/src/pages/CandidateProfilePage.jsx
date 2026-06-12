@@ -169,7 +169,7 @@ export default function CandidateProfilePage() {
         </SectionCard>
 
         <SectionCard title="Candidature" icon="assignment_ind">
-          <InfoRow label="Poste visé"    value={candidate.role} />
+          <InfoRow label="Poste visé"    value={parsedData?.current_title || candidate.role} />
           <InfoRow label="Secteur"       value={parsedData?.sector || null} />
           <InfoRow label="Type de poste" value={parsedData?.job_type || null} />
           <InfoRow label="Statut"><StatusBadge status={candidateStatus} /></InfoRow>
@@ -254,6 +254,14 @@ export default function CandidateProfilePage() {
           <TagList items={parsedData?.languages} empty="Aucune langue détectée." />
         </SectionCard>
       </div>
+
+      {parsedData?.certifications?.length > 0 && (
+        <div className="mt-4">
+          <SectionCard title="Certifications" icon="verified">
+            <TagList items={parsedData.certifications} empty="" />
+          </SectionCard>
+        </div>
+      )}
     </AppLayout>
   )
 }
