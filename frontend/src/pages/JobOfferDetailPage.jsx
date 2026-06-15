@@ -229,27 +229,51 @@ export default function JobOfferDetailPage() {
 
         <SectionCard title="Compétences clés" icon="psychology">
           {offer.requiredSkills?.length > 0 && (
-            <div className="mb-3">
-              <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wide mb-1.5">Requises</p>
-              <div className="flex flex-wrap gap-2">
+            <div className={offer.optionalSkills?.length > 0 ? 'mb-4' : ''}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="material-symbols-outlined text-[13px] text-primary">verified</span>
+                <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wide">Requises</p>
+                <span
+                  className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                  style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-primary)' }}
+                >
+                  {offer.requiredSkills.length}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
                 {offer.requiredSkills.map((skill) => (
-                  <SkillTag key={skill} skill={skill} />
+                  <SkillTag key={skill} skill={skill} variant="required" />
                 ))}
               </div>
             </div>
           )}
+          {offer.requiredSkills?.length > 0 && offer.optionalSkills?.length > 0 && (
+            <hr className="border-outline-variant/30 mb-4" />
+          )}
           {offer.optionalSkills?.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wide mb-1.5">Souhaitées</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="material-symbols-outlined text-[13px] text-outline">add_circle</span>
+                <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wide">Souhaitées</p>
+                <span
+                  className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                  style={{ background: 'var(--color-surface-container)', color: 'var(--color-outline)' }}
+                >
+                  {offer.optionalSkills.length}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
                 {offer.optionalSkills.map((skill) => (
-                  <SkillTag key={skill} skill={skill} />
+                  <SkillTag key={skill} skill={skill} variant="optional" />
                 ))}
               </div>
             </div>
           )}
           {!offer.requiredSkills?.length && !offer.optionalSkills?.length && (
-            <p className="text-[13px] text-text-muted py-1">Aucune compétence renseignée.</p>
+            <div className="flex flex-col items-center justify-center py-6 gap-1.5">
+              <span className="material-symbols-outlined text-[28px] text-outline/50">label_off</span>
+              <p className="text-[12px] text-text-muted">Aucune compétence renseignée.</p>
+            </div>
           )}
         </SectionCard>
       </div>
