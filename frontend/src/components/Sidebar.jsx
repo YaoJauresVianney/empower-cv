@@ -11,7 +11,7 @@ const NAV_ITEMS = [
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
-export default function Sidebar({ onLogout, open, onClose }) {
+export default function Sidebar({ onLogout, open, onClose, onPublish }) {
   const bottomActions = [
     { icon: 'settings', label: 'Paramètres' },
     { icon: 'help',     label: 'Documentation' },
@@ -113,6 +113,7 @@ export default function Sidebar({ onLogout, open, onClose }) {
           style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
         >
           <button
+            onClick={onPublish}
             className="w-full mb-4 font-bold py-2.5 px-4 rounded-xl text-[13px] text-on-primary
               flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97]
               shadow-[0_4px_18px_rgba(79,0,103,0.45)] hover:shadow-[0_6px_28px_rgba(79,0,103,0.65)]

@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
+import UploadJobDescription from './UploadJobDescription'
 
 export default function AppLayout({ children }) {
   const navigate = useNavigate()
   const { getUser, logout } = useAuth()
   const user = getUser()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [publishOpen, setPublishOpen] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -31,6 +33,7 @@ export default function AppLayout({ children }) {
           onLogout={handleLogout}
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
+          onPublish={() => setPublishOpen(true)}
         />
         <main className="lg:ml-64 min-h-[100dvh]">
           <TopBar user={user} onMenuToggle={() => setSidebarOpen(true)} />
@@ -39,6 +42,18 @@ export default function AppLayout({ children }) {
           </div>
         </main>
       </div>
+
+      {publishOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={(e) => { if (e.target === e.currentTarget) setPublishOpen(false) }}
+        >
+          <UploadJobDescription
+            onUploadSuccess={(id) => { setPublishOpen(false); navigate(`/jobs/${id}`) }}
+            onCancel={() => setPublishOpen(false)}
+          />
+        </div>
+      )}
     </>
   )
 }

@@ -6,7 +6,7 @@ import BackButton from '../components/BackButton'
 import SkillTag from '../components/SkillTag'
 import SectionCard from '../components/SectionCard'
 import InfoRow from '../components/InfoRow'
-import { getJobOffer, getJobShortlists, generateShortlist, getShortlistStatus } from '../services/api'
+import { getJobOffer, getJobShortlists, generateShortlist, getShortlistStatus, getJobOfferParseStatus, openJobDescriptionFile } from '../services/api'
 import { formatRetryAt } from '../utils/formatters'
 import '../dashboard.css'
 
@@ -51,7 +51,20 @@ export default function JobOfferDetailPage() {
   const [generateError, setGenerateError] = useState(null)
   const [rateLimit429, setRateLimit429] = useState(null)
   const [expiredLimitTs, setExpiredLimitTs] = useState(0)
+  const [fileLoading, setFileLoading] = useState(false)
   const errorTimerRef = useRef(null)
+
+  const handleViewFile = async () => {
+    if (fileLoading) return
+    setFileLoading(true)
+    try {
+      await openJobDescriptionFile(id)
+    } catch {
+      // silently ignore — user can retry
+    } finally {
+      setFileLoading(false)
+    }
+  }
 
   const { data: offer, isLoading: offerLoading, isError: offerError } = useQuery({
     queryKey: ['job-offer', id],
@@ -67,6 +80,23 @@ export default function JobOfferDetailPage() {
     queryFn: () => getJobShortlists(id).then((res) => res.data?.data ?? []),
     retry: 1,
   })
+
+  useEffect(() => {
+    const parseStatus = offer?.parse_status
+    if (parseStatus === 'completed' || parseStatus === 'failed' || parseStatus == null) return
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await getJobOfferParseStatus(id)
+        const status = res.data?.parse_status
+        if (status === 'completed' || status === 'failed') {
+          queryClient.invalidateQueries({ queryKey: ['job-offer', id] })
+        }
+      } catch { /* ignore transient errors */ }
+    }, 3000)
+
+    return () => clearInterval(interval)
+  }, [offer?.parse_status, id, queryClient])
 
   useEffect(() => {
     if (!generatingId) return
@@ -195,17 +225,22 @@ export default function JobOfferDetailPage() {
         </div>
 
         {offer.fileUrl && (
-          <a
-            href={offer.fileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={handleViewFile}
+            disabled={fileLoading}
             className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold
-              transition-colors duration-150"
+              transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
             style={{ background: '#4f0067', color: '#fff' }}
           >
-            <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
-            Voir le fichier
-          </a>
+            <span
+              className="material-symbols-outlined text-[16px]"
+              style={fileLoading ? { animation: 'spin 1s linear infinite' } : undefined}
+            >
+              {fileLoading ? 'progress_activity' : 'picture_as_pdf'}
+            </span>
+            {fileLoading ? 'Chargement…' : 'Voir le fichier'}
+          </button>
         )}
       </div>
 

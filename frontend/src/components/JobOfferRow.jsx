@@ -1,7 +1,7 @@
 import { memo, useCallback, useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SkillTag from './SkillTag'
-import { parseJobOffer, getJobOfferParseStatus } from '../services/api'
+import { parseJobOffer, getJobOfferParseStatus, openJobDescriptionFile } from '../services/api'
 
 const POLL_INTERVAL_MS  = 3000
 const POLL_MAX_ATTEMPTS = 40
@@ -17,8 +17,21 @@ const JobOfferRow = memo(function JobOfferRow({ offer, onOfferUpdate }) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [parseError, setParseError] = useState(false)
+  const [fileLoading, setFileLoading] = useState(false)
   const menuRef      = useRef(null)
   const errorTimerRef = useRef(null)
+
+  const handleViewFile = useCallback(async () => {
+    if (fileLoading) return
+    setFileLoading(true)
+    try {
+      await openJobDescriptionFile(offer.id)
+    } catch {
+      // l'utilisateur peut réessayer
+    } finally {
+      setFileLoading(false)
+    }
+  }, [offer.id, fileLoading])
 
   const status      = offer.parse_status ?? null
   const isInProgress = status === 'pending' || status === 'processing'
@@ -141,17 +154,20 @@ const JobOfferRow = memo(function JobOfferRow({ offer, onOfferUpdate }) {
       <td className="px-6 py-4 text-center">
         <div className="flex flex-col items-center gap-1.5">
           {offer.fileUrl ? (
-            <a
-              href={offer.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={handleViewFile}
+              disabled={fileLoading}
               aria-label={`Voir le fichier : ${offer.title}`}
               className="inline-flex items-center justify-center p-1.5 rounded-lg text-outline
                 hover:bg-primary-fixed/60 hover:text-primary transition-colors duration-150
-                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim"
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim
+                disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
-            </a>
+              <span className={`material-symbols-outlined text-[20px] ${fileLoading ? 'animate-spin' : ''}`}>
+                {fileLoading ? 'progress_activity' : 'picture_as_pdf'}
+              </span>
+            </button>
           ) : (
             <span className="text-[13px] text-text-muted">—</span>
           )}

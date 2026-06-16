@@ -73,6 +73,16 @@ export const getTopMatchingJobs = () => api.get('api/jobs/top-matching')
 
 export const getJobOffer = (id) => api.get(`api/jobs/${id}`)
 
+// Récupère le fichier de la fiche de poste via axios (le token Bearer est injecté
+// par l'intercepteur) puis l'ouvre dans un nouvel onglet. Une navigation directe
+// (<a href>) échouerait : le navigateur n'attache pas l'en-tête Authorization.
+export const openJobDescriptionFile = async (id) => {
+  const res = await api.get(`api/jobs/${id}/file`, { responseType: 'blob' })
+  const url = URL.createObjectURL(res.data)
+  window.open(url, '_blank', 'noopener,noreferrer')
+  setTimeout(() => URL.revokeObjectURL(url), 10000)
+}
+
 export const getJobShortlists = (id) => api.get(`api/jobs/${id}/shortlists`)
 
 export const generateShortlist = (jobId) => api.post(`api/jobs/${jobId}/shortlists`)

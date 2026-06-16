@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import PageHeader from '../components/PageHeader'
 import FilterBar from '../components/FilterBar'
 import SearchInput from '../components/SearchInput'
 import StatCard from '../components/StatCard'
 import JobOffersTable from '../components/JobOffersTable'
+import UploadJobDescription from '../components/UploadJobDescription'
 import { useAuth } from '../hooks/useAuth'
 import { getJobOffers } from '../services/api'
 import ChatWidget from '../components/ChatWidget'
@@ -77,6 +79,7 @@ function matchesSearch(offer, query) {
 }
 
 export default function JobOffersPage() {
+  const navigate = useNavigate()
   const { getUser } = useAuth()
   const user = getUser()
   const userName = user?.name ?? 'recruteur'
@@ -85,6 +88,7 @@ export default function JobOffersPage() {
   const [loading, setLoading] = useState(true) // true dès le départ — évite le flash de contenu vide
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
+  const [publishOpen, setPublishOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -123,7 +127,7 @@ export default function JobOffersPage() {
       <PageHeader
         title="Offres d'emploi"
         subtitle={`Bonjour ${userName} — gérez et suivez vos offres publiées`}
-        cta={{ label: 'Publier une offre', icon: 'add' }}
+        cta={{ label: 'Publier une offre', icon: 'add', onClick: () => setPublishOpen(true) }}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -165,6 +169,18 @@ export default function JobOffersPage() {
         onOfferUpdate={handleOfferUpdate}
       />
       {user?.id && <ChatWidget />}
+
+      {publishOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={(e) => { if (e.target === e.currentTarget) setPublishOpen(false) }}
+        >
+          <UploadJobDescription
+            onUploadSuccess={(id) => { setPublishOpen(false); navigate(`/jobs/${id}`) }}
+            onCancel={() => setPublishOpen(false)}
+          />
+        </div>
+      )}
     </AppLayout>
   )
 }
