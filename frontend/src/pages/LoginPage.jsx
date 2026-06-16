@@ -34,10 +34,19 @@ const LoginPage = () => {
       setUser(user)
       navigate('/dashboard', { replace: true })
     } catch (requestError) {
-      setError(
-        requestError?.response?.data?.message ??
-          'Impossible de se connecter pour le moment.',
-      )
+      if (requestError?.response?.status === 429) {
+        const retry = Number(requestError.response.headers?.['retry-after'])
+        setError(
+          retry > 0
+            ? `Trop de tentatives. Réessayez dans ${retry} seconde${retry > 1 ? 's' : ''}.`
+            : 'Trop de tentatives de connexion. Réessayez dans quelques instants.',
+        )
+      } else {
+        setError(
+          requestError?.response?.data?.message ??
+            'Impossible de se connecter pour le moment.',
+        )
+      }
     } finally {
       setLoading(false)
     }

@@ -26,7 +26,14 @@ const UploadJobDescription = ({ onUploadSuccess, onCancel }) => {
     const validExtensions = ['.pdf', '.doc', '.docx']
     const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
 
-    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+    // L'extension est le signal fiable et obligatoire. Le MIME (file.type) n'est
+    // rejeté que s'il est PRÉSENT et non conforme : certains navigateurs renvoient
+    // un type vide pour .doc/.docx, qu'il ne faut pas refuser à tort.
+    // Ce filtre n'est qu'un confort UX — la vraie barrière est la validation back.
+    const extensionInvalid = !validExtensions.includes(fileExtension)
+    const mimeInvalid = file.type && !validTypes.includes(file.type)
+
+    if (extensionInvalid || mimeInvalid) {
       setError('Format de fichier invalide. Veuillez sélectionner un fichier PDF, DOC ou DOCX.')
       setSelectedFile(null)
       return
@@ -67,12 +74,21 @@ const UploadJobDescription = ({ onUploadSuccess, onCancel }) => {
         setError('Réponse invalide du serveur.')
       }
     } catch (uploadError) {
-      const errorMessage =
-        uploadError?.response?.data?.message ||
-        uploadError?.response?.data?.error ||
-        'Erreur lors de l\'upload du fichier. Veuillez réessayer.'
-      
-      setError(errorMessage)
+      if (uploadError?.response?.status === 429) {
+        const retry = Number(uploadError.response.headers?.['retry-after'])
+        setError(
+          retry > 0
+            ? `Trop de requêtes. Réessayez dans ${retry} seconde${retry > 1 ? 's' : ''}.`
+            : 'Trop de requêtes. Patientez quelques instants avant de réessayer.',
+        )
+      } else {
+        const errorMessage =
+          uploadError?.response?.data?.message ||
+          uploadError?.response?.data?.error ||
+          'Erreur lors de l\'upload du fichier. Veuillez réessayer.'
+
+        setError(errorMessage)
+      }
     } finally {
       setUploading(false)
     }
