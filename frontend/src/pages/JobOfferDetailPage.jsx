@@ -7,7 +7,7 @@ import SkillTag from '../components/SkillTag'
 import SectionCard from '../components/SectionCard'
 import InfoRow from '../components/InfoRow'
 import { getJobOffer, getJobShortlists, generateShortlist, getShortlistStatus, getJobOfferParseStatus, openJobDescriptionFile } from '../services/api'
-import { formatRetryAt } from '../utils/formatters'
+import { formatRetryAt, decodeTitle } from '../utils/formatters'
 import '../dashboard.css'
 
 const STATUS_CFG = {
@@ -207,7 +207,7 @@ export default function JobOfferDetailPage() {
         style={{ boxShadow: '0 2px 14px rgba(79,0,103,0.07)' }}
       >
         <div className="min-w-0">
-          <h1 className="text-[22px] font-bold text-on-surface leading-tight">{offer.title}</h1>
+          <h1 className="text-[22px] font-bold text-on-surface leading-tight">{decodeTitle(offer.title)}</h1>
           <div className="flex items-center gap-4 mt-2 text-[13px] text-text-muted flex-wrap">
             {offer.publishedAt && (
               <span className="flex items-center gap-1">
