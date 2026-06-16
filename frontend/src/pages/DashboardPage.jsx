@@ -6,9 +6,9 @@ import FilterSelect from '../components/FilterSelect'
 import StatCard from '../components/StatCard'
 import DashboardCandidateTable from '../components/DashboardCandidateTable'
 import ImagePromoCard from '../components/ImagePromoCard'
-import HiringTrendsCard from '../components/HiringTrendsCard'
+import TopMatchingJobsCard from '../components/TopMatchingJobsCard'
 import ChatWidget from '../components/ChatWidget'
-import { getCandidates, getJobOffers, getCandidateStats, getShortlistStats } from '../services/api'
+import { getCandidates, getJobOffers, getCandidateStats, getShortlistStats, getTopMatchingJobs } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import '../dashboard.css'
 
@@ -61,6 +61,12 @@ export default function DashboardPage() {
         candidates: (res.data?.data ?? []).slice(0, 5),
         total:      res.data?.meta?.total ?? null,
       })),
+  })
+
+  const { data: topMatchingJobs, isLoading: topMatchingLoading } = useQuery({
+    queryKey: ['top-matching-jobs-dashboard'],
+    queryFn: () => getTopMatchingJobs().then(res => res.data?.data ?? []),
+    ...STALE,
   })
 
   const avgScore = shortlistStats?.avg_score ?? null
@@ -134,7 +140,7 @@ export default function DashboardPage() {
           imageSrc={PROMO_IMAGE_SRC}
           imageAlt="Une équipe de recruteurs collaborant dans un bureau moderne et lumineux"
         />
-        <HiringTrendsCard />
+        <TopMatchingJobsCard jobs={topMatchingJobs ?? []} isLoading={topMatchingLoading} />
       </div>
 
       {user?.id && <ChatWidget />}

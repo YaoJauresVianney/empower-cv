@@ -69,6 +69,8 @@ export const getAuthUser = () => {
 
 export const getJobOffers = () => api.get('api/jobs')
 
+export const getTopMatchingJobs = () => api.get('api/jobs/top-matching')
+
 export const getJobOffer = (id) => api.get(`api/jobs/${id}`)
 
 export const getJobShortlists = (id) => api.get(`api/jobs/${id}/shortlists`)
