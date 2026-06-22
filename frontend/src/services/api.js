@@ -67,6 +67,9 @@ export const getAuthUser = () => {
   }
 }
 
+export const globalSearch = (query, signal = null) =>
+  api.get('api/search', { params: { q: query }, signal })
+
 export const getJobOffers = () => api.get('api/jobs')
 
 export const getTopMatchingJobs = () => api.get('api/jobs/top-matching')
