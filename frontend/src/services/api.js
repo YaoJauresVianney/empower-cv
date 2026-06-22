@@ -73,6 +73,8 @@ export const getTopMatchingJobs = () => api.get('api/jobs/top-matching')
 
 export const getJobOffer = (id) => api.get(`api/jobs/${id}`)
 
+export const deleteJobOffer = (id) => api.delete(`api/jobs/${id}`)
+
 // Récupère le fichier de la fiche de poste via axios (le token Bearer est injecté
 // par l'intercepteur) puis l'ouvre dans un nouvel onglet. Une navigation directe
 // (<a href>) échouerait : le navigateur n'attache pas l'en-tête Authorization.

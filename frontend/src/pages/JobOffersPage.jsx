@@ -8,7 +8,7 @@ import StatCard from '../components/StatCard'
 import JobOffersTable from '../components/JobOffersTable'
 import UploadJobDescription from '../components/UploadJobDescription'
 import { useAuth } from '../hooks/useAuth'
-import { getJobOffers } from '../services/api'
+import { getJobOffers, deleteJobOffer } from '../services/api'
 import ChatWidget from '../components/ChatWidget'
 import '../dashboard.css'
 
@@ -115,6 +115,12 @@ export default function JobOffersPage() {
     setOffers((prev) => prev.map((offer) => (offer.id === id ? { ...offer, ...patch } : offer)))
   }, [])
 
+  const handleOfferDelete = useCallback((id) => {
+    return deleteJobOffer(id).then(() => {
+      setOffers((prev) => prev.filter((offer) => offer.id !== id))
+    })
+  }, [])
+
   const stats = useMemo(() => buildStats(offers), [offers])
 
   const filteredOffers = useMemo(
@@ -167,6 +173,7 @@ export default function JobOffersPage() {
         totalCount={offers.length}
         loading={loading}
         onOfferUpdate={handleOfferUpdate}
+        onOfferDelete={handleOfferDelete}
       />
       {user?.id && <ChatWidget />}
 

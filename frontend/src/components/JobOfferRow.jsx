@@ -1,10 +1,12 @@
 import { memo, useCallback, useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SkillTag from './SkillTag'
+import ConfirmDeleteModal from './ConfirmDeleteModal'
 import { parseJobOffer, getJobOfferParseStatus, openJobDescriptionFile } from '../services/api'
 
-const POLL_INTERVAL_MS  = 3000
-const POLL_MAX_ATTEMPTS = 40
+const POLL_INTERVAL_MS      = 3000
+const POLL_MAX_ATTEMPTS     = 40
+const MENU_ESTIMATED_HEIGHT = 180
 
 const PARSE_STATUS_BADGE = {
   completed:  { cls: 'bg-green-50 text-green-700',      icon: 'check_circle',      label: 'Analysée' },
@@ -13,12 +15,16 @@ const PARSE_STATUS_BADGE = {
   failed:     { cls: 'bg-error-container text-error',   icon: 'error',             label: 'Échec' },
 }
 
-const JobOfferRow = memo(function JobOfferRow({ offer, onOfferUpdate }) {
+const JobOfferRow = memo(function JobOfferRow({ offer, onOfferUpdate, onOfferDelete }) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [parseError, setParseError] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [dropUp, setDropUp] = useState(false)
   const [fileLoading, setFileLoading] = useState(false)
   const menuRef      = useRef(null)
+  const triggerRef   = useRef(null)
   const errorTimerRef = useRef(null)
 
   const handleViewFile = useCallback(async () => {
@@ -89,7 +95,28 @@ const JobOfferRow = memo(function JobOfferRow({ offer, onOfferUpdate }) {
   }, [offer.id, offer.parse_status, isInProgress, onOfferUpdate])
 
   const closeMenu  = useCallback(() => setMenuOpen(false), [])
-  const toggleMenu = useCallback(() => setMenuOpen((prev) => !prev), [])
+  const toggleMenu = useCallback(() => {
+    setMenuOpen((prev) => {
+      if (!prev && triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect()
+        setDropUp(rect.bottom + MENU_ESTIMATED_HEIGHT > window.innerHeight)
+      }
+      return !prev
+    })
+  }, [])
+
+  const handleDelete = useCallback(() => {
+    closeMenu()
+    setConfirmOpen(true)
+  }, [closeMenu])
+
+  const handleConfirm = useCallback(() => {
+    setDeleting(true)
+    onOfferDelete?.(offer.id).catch(() => {
+      setDeleting(false)
+      setConfirmOpen(false)
+    })
+  }, [offer.id, onOfferDelete])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -108,13 +135,14 @@ const JobOfferRow = memo(function JobOfferRow({ offer, onOfferUpdate }) {
   const menuItems = [
     { icon: 'open_in_new', label: "Voir l'offre", onClick: () => { closeMenu(); navigate(`/jobs/${offer.id}`) } },
     { icon: 'edit',        label: 'Modifier',      onClick: closeMenu },
-    { icon: 'delete',      label: 'Supprimer',     onClick: closeMenu },
+    { icon: 'delete',      label: 'Supprimer',     onClick: handleDelete },
     ...(canParse
       ? [{ icon: 'auto_awesome', label: status === 'failed' ? "Relancer l'analyse" : "Analyser l'offre", onClick: handleParse }]
       : []),
   ]
 
   return (
+    <>
     <tr className="group transition-colors duration-150 hover:bg-primary-fixed/40">
       <td className="px-6 py-4 max-w-64">
         <p className="text-[14px] font-semibold text-on-surface leading-snug truncate">
@@ -190,22 +218,27 @@ const JobOfferRow = memo(function JobOfferRow({ offer, onOfferUpdate }) {
             </span>
           )}
           <button
+            ref={triggerRef}
             onClick={toggleMenu}
+            disabled={deleting}
             className={`p-1.5 rounded-lg text-outline hover:bg-primary-fixed/60 hover:text-primary active:scale-[0.95]
               transition-all duration-150
               focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed-dim
+              disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
               ${menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
             aria-label={`Plus d'options pour ${offer.title}`}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
           >
-            <span className="material-symbols-outlined text-[20px]">more_horiz</span>
+            <span className={`material-symbols-outlined text-[20px] ${deleting ? 'animate-spin' : ''}`}>
+              {deleting ? 'progress_activity' : 'more_horiz'}
+            </span>
           </button>
 
           {menuOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-8 z-50 bg-white rounded-xl py-1 min-w-[168px]"
+              className={`absolute right-0 z-50 bg-white rounded-xl py-1 min-w-[168px] ${dropUp ? 'bottom-8' : 'top-8'}`}
               style={{
                 boxShadow: '0 4px 20px rgba(79,0,103,0.14)',
                 border: '1px solid rgba(79,0,103,0.08)',
@@ -216,8 +249,10 @@ const JobOfferRow = memo(function JobOfferRow({ offer, onOfferUpdate }) {
                   key={label}
                   role="menuitem"
                   onClick={onClick}
+                  disabled={deleting}
                   className="flex items-center gap-2.5 w-full px-4 py-2.5 text-[13px] font-medium text-on-surface
-                    hover:bg-primary-fixed/60 hover:text-primary transition-colors duration-100"
+                    hover:bg-primary-fixed/60 hover:text-primary transition-colors duration-100
+                    disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-[16px] text-outline">{icon}</span>
                   {label}
@@ -228,6 +263,16 @@ const JobOfferRow = memo(function JobOfferRow({ offer, onOfferUpdate }) {
         </div>
       </td>
     </tr>
+
+    {confirmOpen && (
+      <ConfirmDeleteModal
+        title={offer.title}
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirmOpen(false)}
+        loading={deleting}
+      />
+    )}
+    </>
   )
 })
 
